@@ -78,21 +78,28 @@ def limitobjs(wiro, glim):
 		, dtype = float)
 	rahour = np.array([wiro[:,2][i][:2] for i in range(len(wiro))]\
 		, dtype = float)
+	names = np.array([wiro[:,1][i] for i in range(len(wiro))],\
+		dtype = str)
+	obs = np.array(np.loadtxt('/d/users/nikhil/Bowshocks/obslist/'
+		'observed.txt', dtype = str))
+	repeat = [obs == i for i in names]
+	isrepeat = np.array([any(i) for i in repeat])
 	if raupper > 24:
 		a = np.mod(raupper, 24)
 		b = ralower
 		print(str(a) +" " +str(b))
-		ii = (G > glim) & (decdeg > -45) & (rahour <= a)\
-			| (rahour >= b)
+		ii = (G > glim) & (~isrepeat) & (decdeg > -45)\
+			& (rahour <= a) | (rahour >= b)
 	elif ralower < 0:
 		a = raupper
 		b = 24 +ralower
 		print(str(a) +" " +str(b))
-		ii = (G > glim) & (decdeg > -45) & (rahour >= b)\
-		| (rahour <= a)
+		ii = (G > glim) & (~isrepeat) & (decdeg > -45)\
+			(rahour >= b) | (rahour <= a)
 	else:
 		ii = (G > glim) & (decdeg > -45) & (rahour <= raupper)\
-			& (rahour >= ralower)
+			& (rahour >= ralower) & (~isrepeat)
+	print(str(len(names[ii])) +' objects found.')
 	return ii
 
 if(__name__ == '__main__'):
