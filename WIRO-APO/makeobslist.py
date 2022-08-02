@@ -65,7 +65,7 @@ def limitobjs(wiro, glim):
 	satisfy the given constraints.'''
 	sunra = get_sun(Time.now()).ra.hour
 	midnight = np.mod(12 +sunra, 24)
-	rarange = 4
+	rarange = 4.5
 	raupper = midnight +rarange
 	ralower = midnight -rarange
 	print("Sun: " +str(sunra) +" hours")
