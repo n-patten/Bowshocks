@@ -64,49 +64,70 @@ def limitobjs(wiro, glim):
 	-ii: ndarray. A boolean array corresponding to which objects
 	satisfy the given constraints.'''
 	sunra = get_sun(Time.now()).ra.hour
+	# NP Finding the Sun's RA
 	midnight = np.mod(12 +sunra, 24)
+	# NP RA of meridian at midnight
 	rarange = 4.5
+	# NP RA range to search
 	raupper = midnight +rarange
+	# NP Defining upper RA bound
 	ralower = midnight -rarange
+	# NP Defining lower RA bound
 	print("Sun: " +str(sunra) +" hours")
 	print("Midnight: " +str(midnight) +" hours")
 	print("RA upper: " +str(raupper) +" hours")
 	print("RA lower: " +str(ralower) +" hours")
+	# NP Displaying previous results
 	G = np.array([wiro[:,8][i][2:] for i in range(len(wiro[:,8]))]\
 		, dtype = float)
+	# NP Defining G magnitudes from WIRO data
 	decdeg = np.array([wiro[:,3][i][:3] for i in range(len(wiro))]\
 		, dtype = float)
+	# NP Defining declination of each star
 	rahour = np.array([wiro[:,2][i][:2] for i in range(len(wiro))]\
 		, dtype = float)
+	# NP Defining the Right Ascension of each star
 	names = np.array([wiro[:,1][i] for i in range(len(wiro))],\
 		dtype = str)
+	# NP Defining name for each stars
 	obs = np.array(np.loadtxt('/d/users/nikhil/Bowshocks/obslist/'
 		'observed.txt', dtype = str))
+	# NP Reading in already observed star names
 	repeat = [obs == i for i in names]
 	isrepeat = np.array([any(i) for i in repeat])
+	# NP Finding stars that are already observed
 	if raupper > 24:
 		a = np.mod(raupper, 24)
 		b = ralower
+		# NP Making more sensible bounds
 		print('Searching between < ' +str(np.round(a,3)) \
 			+" hours and > " +str(np.round(b,3)) \
 			+' hours.')
 		ii = (G > glim) & (~isrepeat) & (decdeg > -45)\
 			& ((rahour <= a) | (rahour >= b))
+		# NP Limiting selection
+	# NP Making sense of upper RA bound greater than 24 hours
 	elif ralower < 0:
 		a = raupper
 		b = 24 +ralower
+		# NP Making more sensible bounds
 		print('Searching between > ' +str(np.round(a,3)) \
 			+" hours and < " +str(np.round(b,3)) \
 			+' hours.')
 		ii = (G > glim) & (~isrepeat) & (decdeg > -45)\
 			& ((rahour >= b) | (rahour <= a))
+		# NP Limiting selection
+	# NP Making sense of lower RA bound lower than 0 hours
 	else:
 		print('Searching between < ' +str(np.round(raupper,3)) \
 			+" hours and > " +str(np.round(ralower,3)) \
 			+' hours.')
 		ii = (G > glim) & (decdeg > -45) & (rahour <= raupper)\
 			& (rahour >= ralower) & (~isrepeat)
+		# NP Limiting selection
+	# NP Default case
 	print(str(len(names[ii])) +' objects found.')
+	# NP Printing how many stars were found in the limiting process
 	return ii
 
 if(__name__ == '__main__'):
@@ -117,8 +138,8 @@ if(__name__ == '__main__'):
 		WIRO format example can be found in\
 		/d/zem1/hak/chip/Nikhil/Nikhiltargets.cat. Additionally,\
 		limit selection by RA and Dec bounds and G magnitude.\
-		\
-		KOSMOS has an airmass limit of ')
+		KOSMOS has an airmass limit of 4.5.')
+	# NP Adding parser information
 	parser.add_argument('filename', type = str, help = 'Path of WIRO file.\
 		Example: /d/users/nikhil/blah.cat')
 	# NP Defining parser path argument
@@ -148,6 +169,7 @@ if(__name__ == '__main__'):
 		for i in range(len(n))]
 	# NP Generating array of objects in APO format
 	index = limitobjs(wiro, args.gmag)
+	# NP Limiting selection
 	dimmerAPO = np.array(APO)[index]
 	np.savetxt(args.name +'.txt', APO, fmt = '%s')
 	np.savetxt(args.name +'dim.txt', dimmerAPO, fmt = '%s')
