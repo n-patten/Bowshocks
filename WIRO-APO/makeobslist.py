@@ -65,7 +65,7 @@ def limitobjs(wiro, glim):
 	satisfy the given constraints.'''
 	sunra = get_sun(Time.now()).ra.hour
 	midnight = np.mod(12 +sunra, 24)
-	rarange = 3
+	rarange = 4
 	raupper = midnight +rarange
 	ralower = midnight -rarange
 	print("Sun: " +str(sunra) +" hours")
@@ -87,16 +87,23 @@ def limitobjs(wiro, glim):
 	if raupper > 24:
 		a = np.mod(raupper, 24)
 		b = ralower
-		print(str(a) +" " +str(b))
+		print('Searching between < ' +str(np.round(a,3)) \
+			+" hours and > " +str(np.round(b,3)) \
+			+' hours.')
 		ii = (G > glim) & (~isrepeat) & (decdeg > -45)\
-			& (rahour <= a) | (rahour >= b)
+			& ((rahour <= a) | (rahour >= b))
 	elif ralower < 0:
 		a = raupper
 		b = 24 +ralower
-		print(str(a) +" " +str(b))
+		print('Searching between > ' +str(np.round(a,3)) \
+			+" hours and < " +str(np.round(b,3)) \
+			+' hours.')
 		ii = (G > glim) & (~isrepeat) & (decdeg > -45)\
-			(rahour >= b) | (rahour <= a)
+			& ((rahour >= b) | (rahour <= a))
 	else:
+		print('Searching between < ' +str(np.round(raupper,3)) \
+			+" hours and > " +str(np.round(ralower,3)) \
+			+' hours.')
 		ii = (G > glim) & (decdeg > -45) & (rahour <= raupper)\
 			& (rahour >= ralower) & (~isrepeat)
 	print(str(len(names[ii])) +' objects found.')
@@ -112,11 +119,11 @@ if(__name__ == '__main__'):
 		limit selection by RA and Dec bounds and G magnitude.\
 		\
 		KOSMOS has an airmass limit of ')
-	parser.add_argument('filename', type = str, help = 'Name of WIRO file.\
-		Example: blah.cat')
+	parser.add_argument('filename', type = str, help = 'Path of WIRO file.\
+		Example: /d/users/nikhil/blah.cat')
 	# NP Defining parser path argument
 	parser.add_argument('name', type = str, help = \
-		'Name of generated file. Example: name')
+		'Path of generated file. Example: /d/users/nikhil/name')
 	# NP Defining parser name argument
 	parser.add_argument('gmag', type = float, help = \
 		'G Magnitude ceiling. Selection will exclude objects'
@@ -137,7 +144,7 @@ if(__name__ == '__main__'):
 	gs = Gmags(wiro)
 	# NP Extracting objects gmags
 	APO = [n[i] +' ' +ras[i] +' ' +decs[i] +\
-		' RotType=Horizon; RotAng=90 #' +gs[i]\
+		' RotType=Horizon; RotAng=90'\
 		for i in range(len(n))]
 	# NP Generating array of objects in APO format
 	index = limitobjs(wiro, args.gmag)
