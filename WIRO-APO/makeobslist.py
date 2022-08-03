@@ -67,7 +67,7 @@ def limitobjs(wiro, glim):
 	# NP Finding the Sun's RA
 	midnight = np.mod(12 +sunra, 24)
 	# NP RA of meridian at midnight
-	rarange = 4.5
+	rarange = 5
 	# NP RA range to search
 	raupper = midnight +rarange
 	# NP Defining upper RA bound

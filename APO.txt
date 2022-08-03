@@ -1,0 +1,9 @@
+tui_new
+
+# Connect
+TUI -> Connect
+
+# Log in
+User Name: nikhilpatten
+Program ID: WY01
+Passwod: fiddleDeDee
