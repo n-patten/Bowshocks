@@ -7,3 +7,5 @@ TUI -> Connect
 User Name: nikhilpatten
 Program ID: WY01
 Passwod: fiddleDeDee
+
+column binning: 2

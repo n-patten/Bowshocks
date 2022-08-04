@@ -1,8 +1,9 @@
 import argparse
 import numpy as np
 import astropy as ap
+import astopy.units as u
 from astropy.time import Time
-from astropy.coordinates import get_sun
+from astropy.coordinates import get_sun, SkyCoord
 # NP Necessary imports
 
 def names(wiro):
@@ -81,10 +82,10 @@ def limitobjs(wiro, glim):
 	G = np.array([wiro[:,8][i][2:] for i in range(len(wiro[:,8]))]\
 		, dtype = float)
 	# NP Defining G magnitudes from WIRO data
-	decdeg = np.array([wiro[:,3][i][:3] for i in range(len(wiro))]\
+	dec = np.array([wiro[:,3][i] for i in range(len(wiro))]\
 		, dtype = float)
 	# NP Defining declination of each star
-	rahour = np.array([wiro[:,2][i][:2] for i in range(len(wiro))]\
+	ra = np.array([wiro[:,2][i] for i in range(len(wiro))]\
 		, dtype = float)
 	# NP Defining the Right Ascension of each star
 	names = np.array([wiro[:,1][i] for i in range(len(wiro))],\
@@ -93,6 +94,9 @@ def limitobjs(wiro, glim):
 	obs = np.array(np.loadtxt('/d/users/nikhil/Bowshocks/obslist/'
 		'observed.txt', dtype = str))
 	# NP Reading in already observed star names
+	c = SkyCoord(ra, dec, unit = (u.hourangle, u.degree))
+	ras = c.ra.hour
+	decs = c.dec.degree
 	repeat = [obs == i for i in names]
 	isrepeat = np.array([any(i) for i in repeat])
 	# NP Finding stars that are already observed
@@ -103,8 +107,8 @@ def limitobjs(wiro, glim):
 		print('Searching between < ' +str(np.round(a,3)) \
 			+" hours and > " +str(np.round(b,3)) \
 			+' hours.')
-		ii = (G > glim) & (~isrepeat) & (decdeg > -45)\
-			& ((rahour <= a) | (rahour >= b))
+		ii = (G > glim) & (~isrepeat) & (decs > -45)\
+			& ((ras <= a) | (ras >= b))
 		# NP Limiting selection
 	# NP Making sense of upper RA bound greater than 24 hours
 	elif ralower < 0:
@@ -114,16 +118,16 @@ def limitobjs(wiro, glim):
 		print('Searching between > ' +str(np.round(a,3)) \
 			+" hours and < " +str(np.round(b,3)) \
 			+' hours.')
-		ii = (G > glim) & (~isrepeat) & (decdeg > -45)\
-			& ((rahour >= b) | (rahour <= a))
+		ii = (G > glim) & (~isrepeat) & (decs > -45)\
+			& ((ras >= b) | (ras <= a))
 		# NP Limiting selection
 	# NP Making sense of lower RA bound lower than 0 hours
 	else:
 		print('Searching between < ' +str(np.round(raupper,3)) \
 			+" hours and > " +str(np.round(ralower,3)) \
 			+' hours.')
-		ii = (G > glim) & (decdeg > -45) & (rahour <= raupper)\
-			& (rahour >= ralower) & (~isrepeat)
+		ii = (G > glim) & (decs > -45) & (ras <= raupper)\
+			& (ras >= ralower) & (~isrepeat)
 		# NP Limiting selection
 	# NP Default case
 	print(str(len(names[ii])) +' objects found.')

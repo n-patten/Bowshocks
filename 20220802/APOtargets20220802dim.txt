@@ -156,6 +156,7 @@ BS790 20:41:12.17 +42:01:23.9 RotType=Horizon; RotAng=90
 BS792 22:22:02.57 +58:43:09.5 RotType=Horizon; RotAng=90
 BS793 22:34:08.47 +59:15:04.0 RotType=Horizon; RotAng=90
 BS794 00:33:00.00 +62:55:54.5 RotType=Horizon; RotAng=90
+BS864 16:43:41.69 -45:30:12.2 RotType=Horizon; RotAng=90
 BS865 16:41:08.74 -44:57:53.6 RotType=Horizon; RotAng=90
 BS869 16:53:06.12 -44:29:44.5 RotType=Horizon; RotAng=90
 BS873 17:01:31.78 -41:37:55.9 RotType=Horizon; RotAng=90
