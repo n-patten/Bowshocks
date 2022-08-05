@@ -1,7 +1,7 @@
 import argparse
 import numpy as np
 import astropy as ap
-import astopy.units as u
+import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import get_sun, SkyCoord
 # NP Necessary imports
@@ -54,10 +54,11 @@ def Gmags(wiro):
 	# NP Reading in dec column
 	return gmags
 
-def limitobjs(wiro, glim):
-	'''Extracts objects' decs from a list of objects in WIRO format.
+def limitobjs(first, wiro, glim):
+	'''Limits a list of objects based on inputted parameters.
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	Inputs
+	-first: Boolean. Boolean indicating if observation is first half.
 	-wiro: ndarray. A table containing objects in WIRO format.
 	-glim: int. The lower g-magnitude to filter by.
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -68,25 +69,35 @@ def limitobjs(wiro, glim):
 	# NP Finding the Sun's RA
 	midnight = np.mod(12 +sunra, 24)
 	# NP RA of meridian at midnight
-	rarange = 5
+	rarange = 6
 	# NP RA range to search
-	raupper = midnight +rarange
-	# NP Defining upper RA bound
-	ralower = midnight -rarange
-	# NP Defining lower RA bound
-	print("Sun: " +str(sunra) +" hours")
-	print("Midnight: " +str(midnight) +" hours")
-	print("RA upper: " +str(raupper) +" hours")
-	print("RA lower: " +str(ralower) +" hours")
+	if(first):
+		print('First half')
+		raupper = midnight
+		# NP Defining upper RA bound
+		ralower = midnight -rarange
+		# NP Defining lower RA bound
+	else:
+		print('Second half')
+		raupper = midnight +rarange
+		# NP Defining upper RA bound
+		ralower = midnight
+		# NP Defining lower RA bound
+	# NP Setting RA bounds based on whether observation is first
+	# NP or second half
+	print("Sun: " +str(np.round(sunra, 3)) +" hours")
+	print("Midnight: " +str(np.round(midnight, 3)) +" hours")
+	print("RA upper: " +str(np.round(raupper, 3)) +" hours")
+	print("RA lower: " +str(np.round(ralower, 3)) +" hours")
 	# NP Displaying previous results
 	G = np.array([wiro[:,8][i][2:] for i in range(len(wiro[:,8]))]\
 		, dtype = float)
 	# NP Defining G magnitudes from WIRO data
 	dec = np.array([wiro[:,3][i] for i in range(len(wiro))]\
-		, dtype = float)
+		, dtype = str)
 	# NP Defining declination of each star
 	ra = np.array([wiro[:,2][i] for i in range(len(wiro))]\
-		, dtype = float)
+		, dtype = str)
 	# NP Defining the Right Ascension of each star
 	names = np.array([wiro[:,1][i] for i in range(len(wiro))],\
 		dtype = str)
@@ -95,8 +106,11 @@ def limitobjs(wiro, glim):
 		'observed.txt', dtype = str))
 	# NP Reading in already observed star names
 	c = SkyCoord(ra, dec, unit = (u.hourangle, u.degree))
+	# NP Making an array of SkyCoords for each target star
 	ras = c.ra.hour
+	# NP Defining RA's in decimal hours
 	decs = c.dec.degree
+	# NP Defining Dec's in decimal degrees
 	repeat = [obs == i for i in names]
 	isrepeat = np.array([any(i) for i in repeat])
 	# NP Finding stars that are already observed
@@ -134,6 +148,21 @@ def limitobjs(wiro, glim):
 	# NP Printing how many stars were found in the limiting process
 	return ii
 
+def boolean_string(s):
+	'''Translates string to boolean.
+	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	Inputs
+	-s: str. Input from command line. Either true or False. Returns
+	True if input is 'True'. Return False if input is 'False'.
+	Returns error if none are inputted.
+	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	Outputs
+	-out: Boolean. Boolean translation of string.'''
+	if s not in {'False', 'True'}:
+		raise ValueError('Not a valid boolean string')
+	out = (s == 'True')
+	return out
+
 if(__name__ == '__main__'):
 	parser = argparse.ArgumentParser(description = 'Module to write\
 		a list of targets in APO format from a list of targets\
@@ -144,21 +173,22 @@ if(__name__ == '__main__'):
 		limit selection by RA and Dec bounds and G magnitude.\
 		KOSMOS has an airmass limit of 4.5.')
 	# NP Adding parser information
-	parser.add_argument('filename', type = str, help = 'Path of WIRO file.\
-		Example: /d/users/nikhil/blah.cat')
-	# NP Defining parser path argument
 	parser.add_argument('name', type = str, help = \
 		'Path of generated file. Example: /d/users/nikhil/name')
 	# NP Defining parser name argument
 	parser.add_argument('gmag', type = float, help = \
 		'G Magnitude ceiling. Selection will exclude objects'
-			' brighter than this constraint. Example: 12')
+		' brighter than this constraint. Example: 12')
 	# NP Setting g magnitude limit
+	parser.add_argument('first', default=True, type = boolean_string\
+		, help = 'Boolean representing whehter obervation is in\
+		 the first half of the night. Example: True')
+	# NP Defining parser argument for whether observation is in the
+	# NP beginning of the night.
 	args = parser.parse_args()
 	# NP Adding parser to run at command line
-	wirofile = args.filename
-	# NP Defining WIRO list
-	wiro = np.loadtxt(wirofile , dtype = str, delimiter = ' ')
+	wiro = np.loadtxt('/d/users/nikhil/Bowshocks/obslist/'\
+		'Nikhiltargets.cat', dtype = str, delimiter = ' ')
 	# NP Reading in WIRO list
 	n = names(wiro)
 	# Extracting object names
@@ -169,14 +199,14 @@ if(__name__ == '__main__'):
 	gs = Gmags(wiro)
 	# NP Extracting objects gmags
 	APO = [n[i] +' ' +ras[i] +' ' +decs[i] +\
-		' RotType=Horizon; RotAng=90'\
-		for i in range(len(n))]
+		' RotType=Horizon; RotAng=90' for i in range(len(n))]
 	# NP Generating array of objects in APO format
-	index = limitobjs(wiro, args.gmag)
+	index = limitobjs(args.first, wiro, args.gmag)
 	# NP Limiting selection
 	dimmerAPO = np.array(APO)[index]
 	np.savetxt(args.name +'.txt', APO, fmt = '%s')
-	np.savetxt(args.name +'dim.txt', dimmerAPO, fmt = '%s')
-	# NP Writing APO objects to a file with new inputted file name
+	# NP Saving all targets
+	np.savetxt(args.name +'_cut.txt', dimmerAPO, fmt = '%s')
+	# NP Saving limited targets
 	print("Done.")
 	# NP Printing message when conversion is complete
