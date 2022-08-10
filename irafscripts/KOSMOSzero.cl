@@ -1,7 +1,7 @@
 procedure KOSMOSzero(infile)
 
 # task to overscan subtract and trim KOSMOS images from APO
-# version 1.0 by Chip K. and Nikhil 2022Jun07
+# version 1.0 by Chip K. 2015Oct07 and Nikhil
 
   string infile
   string outnam
@@ -18,9 +18,9 @@ begin
    print ("Input file names must end in .fit and _z will be appended")   
    list = infile
    while (fscan(list, line) != EOF) {
-        imcopy (line//"[8:2100,1:2048]", "foo1.fits", ver-)
+        imcopy (line//"[1:2148,*]", "foo1.fits", ver-)
         colbias ("foo1.fits", "foo1b.fits", bias="[2048:2098,*]", trim="[1:1024,*]", interac-, order=3)
-        imcopy (line//"[2101:4193,1:2048]", "foo2.fits", ver- )
+        imcopy (line//"[1:2148,*]", "foo2.fits", ver- )
         colbias ("foo2.fits", "foo2b.fits", bias="[2098:2148,*]", trim="[1025:2048,*]", interac-, order=3)
 	outnam=substr(line,1,strlen(line)-4)//"_z.fits"
 	print (outnam)
