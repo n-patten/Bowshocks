@@ -14,7 +14,7 @@ def findfitsfiles(directory):
 	-fitsfiles: astropy.io fits.open files. Opened fits files.'''
 	files = np.array([i[2] for i in os.walk(directory)])
 	# NP Reading information from directory
-	names = [i.item() for i in files[0]]
+	names = [i for i in files[0]]
 	# NP Extracting the names of files in directory
 	beginning = [i.rfind('.') for i in names]
 	end = [len(i) for i in names]
