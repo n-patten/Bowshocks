@@ -83,6 +83,17 @@ BS345 20:52:53.21 +42:36:27.7 RotType=Horizon; RotAng=90
 BS346 20:51:50.21 +43:19:29.6 RotType=Horizon; RotAng=90
 BS349 21:21:39.07 +50:02:01.0 RotType=Horizon; RotAng=90
 BS350 21:22:55.70 +50:24:25.2 RotType=Horizon; RotAng=90
+BS351 22:12:30.07 +55:32:07.4 RotType=Horizon; RotAng=90
+BS352 22:15:57.48 +58:09:36.4 RotType=Horizon; RotAng=90
+BS353 22:16:32.93 +59:23:30.8 RotType=Horizon; RotAng=90
+BS354 22:27:41.42 +57:41:04.6 RotType=Horizon; RotAng=90
+BS356 22:39:17.71 +59:01:00.5 RotType=Horizon; RotAng=90
+BS357 22:39:22.54 +59:00:25.9 RotType=Horizon; RotAng=90
+BS358 22:34:06.50 +60:58:50.2 RotType=Horizon; RotAng=90
+BS359 22:46:40.22 +58:17:43.8 RotType=Horizon; RotAng=90
+BS360 22:51:33.77 +59:00:30.6 RotType=Horizon; RotAng=90
+BS361 22:51:39.72 +61:08:51.0 RotType=Horizon; RotAng=90
+BS362 22:55:45.34 +60:24:40.3 RotType=Horizon; RotAng=90
 BS624 16:49:22.80 -44:58:48.0 RotType=Horizon; RotAng=90
 BS634 16:57:15.00 -43:43:15.2 RotType=Horizon; RotAng=90
 BS635 16:55:29.57 -43:09:03.6 RotType=Horizon; RotAng=90
@@ -135,6 +146,8 @@ BS785 20:24:51.62 +39:26:32.3 RotType=Horizon; RotAng=90
 BS788 20:35:16.30 +41:12:36.4 RotType=Horizon; RotAng=90
 BS789 20:35:08.64 +42:25:57.0 RotType=Horizon; RotAng=90
 BS790 20:41:12.17 +42:01:23.9 RotType=Horizon; RotAng=90
+BS792 22:22:02.57 +58:43:09.5 RotType=Horizon; RotAng=90
+BS793 22:34:08.47 +59:15:04.0 RotType=Horizon; RotAng=90
 BS865 16:41:08.74 -44:57:53.6 RotType=Horizon; RotAng=90
 BS869 16:53:06.12 -44:29:44.5 RotType=Horizon; RotAng=90
 BS873 17:01:31.78 -41:37:55.9 RotType=Horizon; RotAng=90
