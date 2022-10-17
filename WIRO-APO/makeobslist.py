@@ -51,8 +51,9 @@ def Gmags(wiro):
 	Outputs
 	-gmags: ndarray. An array of object gmags'''
 	gmags = wiro[:,8]
-	# NP Reading in dec column
-	return gmags
+	# NP Reading in gmag column
+	mags = np.array([i[2: 7] for i in gmags])
+	return mags
 
 def limitobjs(first, wiro, glim):
 	'''Limits a list of objects based on inputted parameters.
@@ -69,7 +70,7 @@ def limitobjs(first, wiro, glim):
 	# NP Finding the Sun's RA
 	midnight = np.mod(12 +sunra, 24)
 	# NP RA of meridian at midnight
-	rarange = 6
+	rarange = 8
 	# NP RA range to search
 	if(first):
 		print('First half')
@@ -129,8 +130,8 @@ def limitobjs(first, wiro, glim):
 		a = raupper
 		b = 24 +ralower
 		# NP Making more sensible bounds
-		print('Searching between > ' +str(np.round(a,3)) \
-			+" hours and < " +str(np.round(b,3)) \
+		print('Searching between < ' +str(np.round(a,3)) \
+			+" hours and > " +str(np.round(b,3)) \
 			+' hours.')
 		ii = (G > glim) & (~isrepeat) & (decs > -45)\
 			& ((ras >= b) | (ras <= a))
@@ -199,7 +200,8 @@ if(__name__ == '__main__'):
 	gs = Gmags(wiro)
 	# NP Extracting objects gmags
 	APO = [n[i] +' ' +ras[i] +' ' +decs[i] +\
-		' RotType=Horizon; RotAng=90' for i in range(len(n))]
+		' RotType=Horizon; RotAng=90' 
+		+'\n# G = ' +gs[i] for i in range(len(n))]
 	# NP Generating array of objects in APO format
 	index = limitobjs(args.first, wiro, args.gmag)
 	# NP Limiting selection
