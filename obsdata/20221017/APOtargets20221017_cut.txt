@@ -250,3 +250,9 @@ BS794 00:33:00.00 +62:55:54.5 RotType=Horizon; RotAng=90
 # G = 4.12
 BS895 17:38:32.28 -29:43:07.0 RotType=Horizon; RotAng=90
 # G = 11.78
+HZ2 04:12:43.50 11:51:50.00 RotType=Horizon; RotAng=90
+# G = 13.79
+HIP96514 19:37:15.9748 +26:09:15.760 RotType=Horizon; RotAng=90
+# G = 8.47
+HIP95446 19:24:56.1419 +31:48:04.300 RotType=Horizon; RotAng=90
+# G = 8.19

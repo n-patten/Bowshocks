@@ -57,10 +57,14 @@ def generatelogtxt(fitsopen):
 	sortedobjnames = np.array([i[0].header['OBJNAME'] for i in \
 		fitsopen])[polishedindices]
 	# NP Creating a lit of object names in order
+	ii = np.array([len(i) > 5 for i in sortedobjnames])
+	# NP Creating index of obj names longer than 5 characters
+	sortedobjnames[ii] = np.array([i[:5] for i in sortedobjnames[ii]])
+	# NP Limiting names to 5 characters or less
 	sortedexp = np.array([i[0].header['EXPTIME'] for i in fitsopen])\
 		[polishedindices]
 	# NP Creating a list of exptimes in order
-	sortedfilters = np.array([i[0].header['FILTER1'] for i in \
+	sortedslits = np.array([i[0].header['SLIT'] for i in \
 		fitsopen])[polishedindices]
 	# NP Creating a lit of filters in order
 	sortedtimes = np.array([i[11:16] for i in sorteddates])
@@ -75,14 +79,14 @@ def generatelogtxt(fitsopen):
 		+str(dates[int(np.median(polishedindices))][0:4])+'\n'\
 		+'Observer: Nikhil Patten\n'\
 		+'CONDITIONS\n'\
-		+'Image\t\tObject\tName\texp\tFilt\tTAI\tX\tNotes\n'
+		+'Image\t\tObject\tName\texp\tSlit\t\tTAI\tX\tNotes\n'
 	# NP Creating header of log file
 	for i in range(len(polishedindices)):
 	    	log += str(sortednames[i]) +'\t' +str(sortedobjs[i]) \
 	   		+'\t' +str(sortedobjnames[i]) +'\t' \
 			+str(sortedexp[i]) \
-			+'\t' +str(sortedfilters[i]) \
-	    		+'\t' +str(sortedtimes[i]) +'\t' \
+			+'\t' +str(sortedslits[i]) \
+	    		+' \t' +str(sortedtimes[i]) +'\t' \
 			+str(np.round(sortedairmass[i],3)) +'\t\n'
 	# NP Writing meat of log file
 	return log
