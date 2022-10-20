@@ -64,6 +64,10 @@ def generatelogtxt(fitsopen):
 	sortedexp = np.array([i[0].header['EXPTIME'] for i in fitsopen])\
 		[polishedindices]
 	# NP Creating a list of exptimes in order
+	ii = np.array([(i == 'Flat') | (i == 'Bias') for i in sortedobjs])
+	# NP Creating indices of non object type exposures
+	sortedobjnames[ii] = np.array(["" for i in sortedobjnames[ii]])
+	# NP Setting name to be blank if obj is not a star
 	sortedslits = np.array([i[0].header['SLIT'] for i in \
 		fitsopen])[polishedindices]
 	# NP Creating a lit of filters in order
