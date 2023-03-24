@@ -209,4 +209,4 @@ BS793 22:34:08.47 +59:15:04.0 RotType=Horizon; RotAng=90
 BS794 00:33:00.00 +62:55:54.5 RotType=Horizon; RotAng=90
 # G = 4.12
 StKM-1-266 02:25:49.42 +34:18:31.9 RotType=Horizon; RotAng=90
-# G=10.2
+# G = 10.2
