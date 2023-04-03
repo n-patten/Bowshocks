@@ -11,9 +11,9 @@ from scipy.stats import chi2
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from scipy.optimize import curve_fit
-from PyAstronomy.pyasl import fastRotBroad
 from scipy.interpolate import CubicSpline
 from scipy.ndimage import gaussian_filter
+from PyAstronomy.pyasl import fastRotBroad, rotBroad
 # NP Necessary imports
 
 dir = '/d/hya1/BS/spectra/'
@@ -83,7 +83,9 @@ s = [1e4 /w for w in wavlsvac]
 nstp = [1 +0.0000834254 +0.02406147 /(130 -es**2) +0.00015998 \
 	/(38.9 -es**2) for es in s]
 # NP Finding index of refraction for air at standard temp. and pressure
-wavls = [wavlsvac[i] /nstp[i] for i in range(len(nstp))]
+n_tp = [1 + (76000 * n /(96095.43)) *(1e-8 *76000 *(0.601-0.00972 \
+	*20) /(1 +0.003661 *20)) for n in nstp]
+wavls = [wavlsvac[i] /nstp[i] for i in range(len(n_tp))]
 # NP Converting wavelengths to air wavelengths
 # NP Conversion to air wavelengths was done by a procedure outlined in
 # this link: http://www.astro.uu.se/valdwiki/Air-to-vacuum%20conversion
@@ -112,7 +114,9 @@ s = [1e4 /w for w in cwavlsvac]
 nstp = [1 +0.0000834254 +0.02406147 /(130 -es**2) +0.00015998 \
 	/(38.9 -es**2) for es in s]
 # NP Index of refraction in air for each wavelength
-cwavls = [cwavlsvac[i] /nstp[i] for i in range(len(nstp))]
+n_tp = [1 + (76000 * n /(96095.43)) *(1e-8 *76000 *(0.601-0.00972 \
+	*20) /(1 +0.003661 *20)) for n in nstp]
+cwavls = [cwavlsvac[i] /nstp[i] for i in range(len(n_tp))]
 # NP Convolved model spectra wavelengths in air
 # NP Conversion to air wavelengths was done by a procedure outlined in
 # this link: http://www.astro.uu.se/valdwiki/Air-to-vacuum%20conversion
@@ -179,55 +183,110 @@ def guess(spec):
 	return np.nan, np.nan, np.nan
 	# NP Returning invalid parameters if no spectrum found
 
-def interpspectra_T(T_targ, g_targ):
-	'''Interpolates between different temperature model spectra at
-	constant log g. Uses a linear interpolation between temperature
-	difference to interpolate between two model spectra.
+def interpspectra(T_targ, g_targ, plot):
+	'''Interpolates between different temperature at and different
+	log g model spectra. Uses a bilinear interpolation between 
+	temperatures and log g to interpolate between four model spectra.
 	---------------------------------------------
 	Inputs
 	-T_targ: float. Target temperature to interpolate to in Kelvin.
-	-g_targ: float. Best fit log g result for models.
+	-g_targ: float. Target log g to interpolate to for models.
+	-plot: Boolean. Whether to plot the interpolated spectrum.
 	---------------------------------------------
 	Outputs
-	-t_test: float. Best fit parameter for temperaure in Kelvin.
-	-g_test: float. Best fit parameter for log g.
+	-wav_new: array. Wavelength array in Angstroms.
+	-spline(wav_new): float. Spline of interpolated spectrum.
 	'''
 	try:
 		tempdiffs = temps -T_targ
 		# NP Finding the temperature difference between all
 		# NP model spectra and target temperature.
+		gdiffs = gs -g_targ
+		# NP Finding the gravity difference between all
+		# NP model spectra and target gravity.
 		T_1 = T_targ +tempdiffs[tempdiffs < 0][np.argmin(\
 			np.abs(tempdiffs[tempdiffs < 0]))]
-		# NP Finding lower temperature model
+		# NP Finding lower temperature
 		T_2 = T_targ +tempdiffs[tempdiffs > 0][np.argmin(\
 			np.abs(tempdiffs[tempdiffs > 0]))]
-		# NP Finding upper temperature model
-		wavs1 = np.array(wavls)[(gs == g_targ) & (temps == \
+		# NP Finding upper temperature
+		g_1 = g_targ +gdiffs[gdiffs < 0][np.argmin(\
+			np.abs(gdiffs[gdiffs < 0]))]
+		# NP Finding lower gravity
+		g_2 = g_targ +gdiffs[gdiffs > 0][np.argmin(\
+			np.abs(gdiffs[gdiffs > 0]))]
+		# NP Finding upper gravity
+		wavs1 = np.array(wavls)[(gs == g_1) & (temps == \
 			T_1)][0]
 		# NP Finding the wavelength array corresponding to the
-		# NP lower temperature model
-		wavs2 = np.array(wavls)[(gs == g_targ) & (temps == \
+		# NP lower temperature and lower gravity model
+		wavs2 = np.array(wavls)[(gs == g_1) & (temps == \
 			T_2)][0]
 		# NP Finding the wavelength array corresponding to the
-		# NP upper temperature model
-		ints1 = np.array(ints)[(gs == g_targ) & (temps == \
+		# NP upper temperature and lower gravity model
+		wavs3 = np.array(wavls)[(gs == g_2) & (temps == \
+			T_1)][0]
+		# NP Finding the wavelength array corresponding to the
+		# NP higher gravity and lower temperature model
+		wavs4 = np.array(wavls)[(gs == g_2) & (temps == \
+			T_2)][0]
+		# NP Finding the wavelength array corresponding to the
+		# NP higher temperature and higher gravity model
+		ints1 = np.array(ints)[(gs == g_1) & (temps == \
 			T_1)][0]
 		# NP Finding the spectrum of the lower temperature model
-		ints2 = np.array(ints)[(gs == g_targ) & (temps == \
+		ints2 = np.array(ints)[(gs == g_1) & (temps == \
 			T_2)][0]
 		# NP Finding the spectrum of the higher temperature 
-		# NP model
-		spline1 = CubicSpline(wavs1, ints1)
-		# NP Fidning spline for lower temeperature model
-		spline2 = CubicSpline(wavs2, ints2)
-		# NP Finding spline for higher temperature model
-		wav_new = np.linspace(3700, 5000, 15000)
+		# NP and lower gravity model
+		ints3 = np.array(ints)[(gs == g_2) & (temps == \
+			T_1)][0]
+		# NP Finding the spectrum of the higher gravity and
+		# lower temperature modle
+		ints4 = np.array(ints)[(gs == g_2) & (temps == \
+			T_2)][0]
+		# NP Finding the spectrum of the higher gravity model
+		# NP and higher temperature
+		S_T_g1 = ((T_2 -T_targ) /(T_2 -T_1)) *ints1 \
+			+((T_targ -T_1) /(T_2 -T_1)) *ints2
+		# NP Finding temperature interpolated spectrum at low
+		# NP gravity
+		S_T_g2 = ((T_2 -T_targ) /(T_2 -T_1)) *ints3 \
+			+((T_targ -T_1) /(T_2 -T_1)) *ints4
+		# NP Finding temperature interpolated spectrum at low
+		# NP gravity
+		S_T_g = ((g_2 -g_targ) /(g_2 -g_1)) *S_T_g1 \
+			+((g_targ -g_1) /(g_2 -g_1)) *S_T_g2
+		# NP Finding combined gravity interpolated and
+		# NP temperature interpolated spectrum
+		wav_new = np.linspace(3700, 5010, 15000)
 		# NP Creating wavelength array to interpolate over
-		interp = spline1(wav_new) +(spline2(wav_new) -\
-			spline1(wav_new)) *(T_targ -T_1) /(T_2 -T_1)
-		# NP Linearlly interpolating between different
-		# NP temperature spectra
-		return wav_new, interp
+		if(plot):
+		# If plotting is desired:
+			plt.plot(wavs1, ints1, label = 'T =' +str(T_1) \
+				+', g =' +str(g_1))
+			# NP Plotting first model spectrum
+			plt.plot(wavs4, ints4, label = 'T =' +str(T_2) \
+				+', g =' +str(g_2))
+			# NP Plotting fourth model spectrum
+			plt.plot(wavs2, ints2, label = 'T =' +str(T_2) \
+				+', g =' +str(g_1))
+			# NP Plotting second model spectrum
+			plt.plot(wavs3, ints3, label = 'T =' +str(T_1) \
+				+', g =' +str(g_2))
+			# NP Plotting third model spectrum
+			plt.plot(wavs1, S_T_g, label = 'T =' +\
+				str(T_targ) +', g =' +str(g_targ))
+			# NP Plotting interpolated spectrum
+			plt.legend()
+			# NP Adding a legend
+			plt.xlim(4000, 4200)
+			# NP Limiting plot to 4000-4200 Angstroms
+			plt.show()
+			# NP Showing plot
+		spline = CubicSpline(wavs1, S_T_g)
+		# NP Creating spline of interpolated spectrum
+		return wav_new, spline(wav_new)
 		# NP Returning wavelength array and interpolated
 		# NP spectrum
 	except Exception:
@@ -237,52 +296,96 @@ def interpspectra_T(T_targ, g_targ):
 		# NP interpolated
 
 def log_likelihood_T(theta, x, y, yerr):
-	T, vsini, z, l = theta
+	T, g, vsini, v_rad = theta
+	# NP Defining parameters
+	print(T, g, vsini, v_rad)
+	# NP Printing parameters
 	try:
-		if((15000 < T < 50000) & (0 < vsini < 800) & (-5 < z < \
-			5) & (0 < l < 1)):
+		if((15000 < T < 50000) & (2 < g < 5) & (0 < vsini < \
+			800) & (-350 < 	v_rad < 350)):
 			spec = data[index]
+			# NP Finding spectrum
 			wavs = wavl[index]
+			# NP Finding wavelengths
 			specspline = CubicSpline(wavs, spec)
+			# NP Creating cubic spline of spectrum
 			mask1 = wavs > 4256
+			# NP Limiting blue continuum to greater than
+			# NP 4256 Angstroms
 			mask2 = wavs < 4264
+			# NP Limiting blue continuum to less than 4264
+			# NP Angstroms
 			mask3 = np.logical_and(mask1, mask2)
+			# NP Combining limitations
 			bluewavs = spec[mask3]
+			# NP Defining blue continuum
 			mask1 = wavs > 4945
+			# NP Limiting red continuum to greater than
+			# NP 4945 Angstorms
 			mask2 = wavs < 4954
+			# NP Limiting red continuum to less than 4954
+			# NP Angstroms
 			mask3 = np.logical_and(mask1, mask2)
+			# NP Combining limitations
 			redwavs = spec[mask3]
-			wavs2, model = interpspectra_T(T, bestg)
-			scale = len(wavs2) /(6200 -3700)
-			mask1 = wavs > 4000
-			mask2 = wavs < 4210
+			# NP Definining red continuum
+			wavs2, smodel = interpspectra(T, g, False)
+			# Interpolating to desired T and log g
+			z = v_rad *wavs /(3e5)
+			# NP Defining wavelength shift
+
+			mask1 = wavs2 > 3990
+			# NP Limiting blue model to greater than 3990
+			# NP Angstroms
+			mask2 = wavs2 < 4410
+			# NP Limiting blue model to less than 4410
+			# NP Angstromgs
 			mask3 = np.logical_and(mask1, mask2)
-			#convmodel = gaussian_filter(model, sigma = \
-			#	4400 *vsini *scale /(3e5) /2)
-			convmodel = fastRotBroad(wavs2, model, l, \
-				vsini)
-			convmodelspline = CubicSpline(wavs2, convmodel)
+			# NP Combining limitations
+			convmodel = fastRotBroad(wavs2[mask3], \
+				smodel[mask3], 0.3, vsini)
+			# NP Creating a convolved model to desired vsini
+			convmodelspline = CubicSpline(wavs2[mask3], \
+				convmodel)
+			# NP Creating a spline of the convolved model
+			mask1 = wavs > 4000
+			
+			mask2 = wavs < 4400
+			mask3 = np.logical_and(mask1, mask2)
 			model = convmodelspline(wavs[mask3])
-			y = specspline(wavs[mask3] +z)
+			y = specspline(wavs[mask3] +z[mask3])
 			bsigma = np.std(bluewavs) **2
 			chi_b = np.sum((y -model) **2 /bsigma)
-			logprob1 = chi2.logpdf(chi_b, len(wavs[mask3]) \
-				-3)
+			N = len(wavs[mask3]) -4
+
+			mask1 = wavs2 > 4455
+			mask2 = wavs2 < 5010
+			mask3 = np.logical_and(mask1, mask2)
+			convmodel = fastRotBroad(wavs2[mask3], \
+				smodel[mask3], 0.3, vsini)
+			convmodelspline = CubicSpline(wavs2[mask3], \
+				convmodel)
 			mask1 = wavs > 4465
 			mask2 = wavs < 5000
 			mask3 = np.logical_and(mask1, mask2)
-			rsigma = np.std(redwavs) **2
-			chi_r = np.sum((specspline(wavs[mask3] \
-				+z) -convmodelspline(wavs[mask3])) \
-				**2 /rsigma)
-			logprobtot = logprob1
+			model = convmodelspline(wavs[mask3])
+			y = specspline(wavs[mask3] +z[mask3])
+			rsigma = 4 *np.std(redwavs) **2
+			chi_r = np.sum((y -model) **2 /rsigma)
+			N += len(wavs[mask3])
+			
+			logprob1 = chi2.logpdf(chi_b, N)
+			logprob2 = chi2.logpdf(chi_r, N)
+
+			logprobtot = logprob1 +logprob2
 			s = open('/d/hya1/BS/emcee/temp/' +snames[index]\
 				+'.dat', 'a')
 			datastr = '{0:5.5f}\t{1:5.5f}\t{2:5.5f}\t' \
 				'{3:5.5f}\t{4:5.5f}\t{5:5.5f}'\
-				'\t{6:5.5f}\t{7:5.5f}\n'\
-				.format(T, vsini, z, chi_b, chi_r, \
-				logprobtot, bsigma, rsigma)
+				'\t{6:5.5f}\n'\
+				.format(T, vsini, z[0], chi_b, \
+				logprobtot, bsigma **0.5, (chi_b \
+				+chi_r) /N)
 			s.write(datastr)
 			s.close()
 			return logprobtot
@@ -300,21 +403,22 @@ def log_probability_T(theta, x, y, yerr):
 	return lp + log_likelihood_T(theta, x, y, yerr)
 
 def log_prior(theta):
-	T, vsini, z, l = theta
-	if 15000 < T < 50000 and 0 < vsini < 800 and -5 < z < 5 \
-		and 0 < l < 1:
+	T, g, vsini, v_rad = theta
+	if 15000 < T < 50000 and 2 < g < 5 and 0 < vsini < 800 and \
+		-350 < v_rad < 350:
 		return 0.0
 	return -np.inf
 
-def mcmc_T(t, g, v, z):
+def mcmc(t, g, v, z):
 	T_true = t
+	g_true = g
 	vsini_true = v
-	z_true = z
+	vrad_true = z *3e5 /4400
 	nll = lambda *args: -log_likelihood_T(*args)
-	initial = np.array([T_true, vsini_true, z_true, 0.1]) \
+	initial = np.array([T_true, g_true, vsini_true, vrad_true])\
 		+0.1 * np.random.randn(4)
-	soln = minimize(nll, initial, args=(ints[1][0:3], ints[1][0:3], \
-		ints[1][0:3]))
+	soln = minimize(nll, initial, args=(ints[1][0:3], ints[1][0:3]\
+		, ints[1][0:3]))
 
 	pos = soln.x + 1e-4 * np.random.randn(32, 4)
 	nwalkers, ndim = pos.shape
@@ -325,7 +429,7 @@ def mcmc_T(t, g, v, z):
 
 	from IPython.display import display, Math
 	flat_samples = sampler.get_chain(discard=600, thin=15, flat=True)
-	labels = ["T", "vsini", "z", "l"]
+	labels = ["T", "logg", "vsini", "v_rad"]
 	txt = ""
 	for i in range(ndim):
 		mcmc = np.percentile(flat_samples[:, i], [16, 50, 84])
@@ -333,19 +437,20 @@ def mcmc_T(t, g, v, z):
 		txt += "{{{3}}} = {0:.5f} -{1:.5f} +{2:.5f}\n"\
 			.format(mcmc[1], q[0], q[1], labels[i])
 	print(txt)
+	# NP Printing best-fit parameters and uncertainties
 
 	Tguess = np.percentile(flat_samples[:, 0], [50])
-	vsiniguess = np.percentile(flat_samples[:, 1], [50])
-	zguess = np.percentile(flat_samples[:, 2], [50])
+	gguess = np.percentile(flat_samples[:, 1], [50])
+	vsiniguess = np.percentile(flat_samples[:, 2], [50])
+	vradguess = np.percentile(flat_samples[:, 3], [50])
 	f = plt.figure(facecolor = 'white', figsize = [16, 10])
 	plt.xlim(3800, 5000)
-	wmodel, model = interpspectra_T(Tguess, g)
+	wmodel, model = interpspectra(Tguess, gguess, False)
 	splspec = CubicSpline(wavl[index], data[index])
+	zguess = wmodel *vradguess /(3e5)
 	plt.plot(wmodel, splspec(wmodel -zguess), 'r', label = \
 		snames[index])
-	scale = len(wmodel) /(6200 -3700)
-	convmodel = gaussian_filter(model, sigma = 4400 *vsiniguess \
-		*scale /2 /(3e5))
+	convmodel = rotBroad(wmodel, model, 0.3, vsiniguess)
 	conmodelspl = CubicSpline(wmodel, convmodel)
 	plt.plot(wmodel, conmodelspl(wmodel), '--k', label = \
 		'Best fit params')
@@ -353,16 +458,17 @@ def mcmc_T(t, g, v, z):
 	plt.legend()
 	plt.xlabel(r'$\AA$')
 	plt.text(5010, 1, txt, fontsize = 'x-large')
-	#plt.savefig('/d/www/nikhil/public_html/research/emcee/temp\
-		#/BS013fullemceefittedparams.png', bbox_inches ='tight')
+	plt.savefig('/d/www/nikhil/public_html/research/emcee/temp'\
+		'/' +snames[index] +'fullemceefittedparams.png', \
+		bbox_inches ='tight')
 	plt.show()
 
 	flat_samples = sampler.get_chain(discard=600, thin=15, flat=True)
 	fig = corner.corner(flat_samples, labels = labels)
 	fig.set_facecolor('white')
 	fig.show()
-	#plt.savefig('/d/www/nikhil/public_html/research/emcee/temp/\
-		#BS013fullcorners.png')
+	plt.savefig('/d/www/nikhil/public_html/research/emcee/temp/'\
+		+snames[index] +'fullcorners.png')
 	plt.show()
 
 if(__name__ == '__main__'):
@@ -379,4 +485,11 @@ if(__name__ == '__main__'):
 	# NP Getting best-fit paramaters
 	if(~np.isnan(bestT +bestg +bestv)):
 		index = np.argwhere(snames == args.spec)[0][0]
-		mcmc_T(bestT, bestg, bestv, 0)
+		# NP Finding index of desired spectrum
+		mcmc(bestT, bestg, bestv, 0)
+		# NP Running MCMC on the desired spectrum
+		bestchi = np.min(np.loadtxt('/d/hya1/BS/emcee/temp/' \
+			+snames[index] +'.dat', usecols = [6]))
+		# NP Reading best reduced chi-squared
+		print('best chi2: ' +str(bestchi))
+		#interpspectra(31923.35770, 3.82818, True)
