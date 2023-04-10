@@ -85,7 +85,7 @@ nstp = [1 +0.0000834254 +0.02406147 /(130 -es**2) +0.00015998 \
 # NP Finding index of refraction for air at standard temp. and pressure
 n_tp = [1 + (76000 * n /(96095.43)) *(1e-8 *76000 *(0.601-0.00972 \
 	*20) /(1 +0.003661 *20)) for n in nstp]
-wavls = [wavlsvac[i] /nstp[i] for i in range(len(n_tp))]
+wavls = [wavlsvac[i] /nstp[i] for i in range(len(nstp))]
 # NP Converting wavelengths to air wavelengths
 # NP Conversion to air wavelengths was done by a procedure outlined in
 # this link: http://www.astro.uu.se/valdwiki/Air-to-vacuum%20conversion
@@ -114,9 +114,7 @@ s = [1e4 /w for w in cwavlsvac]
 nstp = [1 +0.0000834254 +0.02406147 /(130 -es**2) +0.00015998 \
 	/(38.9 -es**2) for es in s]
 # NP Index of refraction in air for each wavelength
-n_tp = [1 + (76000 * n /(96095.43)) *(1e-8 *76000 *(0.601-0.00972 \
-	*20) /(1 +0.003661 *20)) for n in nstp]
-cwavls = [cwavlsvac[i] /nstp[i] for i in range(len(n_tp))]
+cwavls = [cwavlsvac[i] /nstp[i] for i in range(len(nstp))]
 # NP Convolved model spectra wavelengths in air
 # NP Conversion to air wavelengths was done by a procedure outlined in
 # this link: http://www.astro.uu.se/valdwiki/Air-to-vacuum%20conversion
