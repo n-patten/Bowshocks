@@ -412,6 +412,8 @@ def mcmc(t, g, v, z):
 	g_true = g
 	vsini_true = v
 	vrad_true = z *3e5 /4400
+	# NP Setting best-fit temperature, log g, vsini and radial
+	# NP velocity presets.
 	nll = lambda *args: -log_likelihood_T(*args)
 	initial = np.array([T_true, g_true, vsini_true, vrad_true])\
 		+0.1 * np.random.randn(4)
