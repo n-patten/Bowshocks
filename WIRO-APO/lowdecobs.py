@@ -74,7 +74,7 @@ def limitobjs(first, wiro, glim):
 	# NP RA range to search
 	if(first):
 		print('First half')
-		raupper = midnight+1
+		raupper = midnight+3
 		# NP Defining upper RA bound
 		ralower = midnight -rarange
 		# NP Defining lower RA bound
@@ -82,7 +82,7 @@ def limitobjs(first, wiro, glim):
 		print('Second half')
 		raupper = midnight +rarange
 		# NP Defining upper RA bound
-		ralower = midnight+1
+		ralower = midnight-3
 		# NP Defining lower RA bound
 	# NP Setting RA bounds based on whether observation is first
 	# NP or second half
