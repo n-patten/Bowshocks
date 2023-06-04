@@ -16,8 +16,10 @@ from scipy.ndimage import gaussian_filter
 from PyAstronomy.pyasl import fastRotBroad, rotBroad
 # NP Necessary imports
 
-#xcsao BS013.fits template=test.fit st_l=3800 end_l=6000 low_bin=10 top_low=50 top_nrun=4096 pkfrac=-0.5 report_mode= 2
-
+# rvsao
+# xcsao BS013.fits template=test.fit st_l=3800 end_l=6000 low_bin=10 top_low=50 top_nrun=4096 pkfrac=-0.5 report_mode= 2
+# hedit BS013.fits fiel=VRAD value=-15.862 add+
+# dopcor BS013.fits BS013shift.fits redsh=VRAD isvel+ add- disper+ verbose+ flux-
 
 dir = '/d/hya1/BS/spectra/'
 # NP Directory of processed spectra
@@ -301,23 +303,23 @@ def interpspectra(T_targ, g_targ, plot):
 		# NP interpolated
 
 def log_likelihood_T(theta, x, y, yerr):
-	T, g, vsini = theta
+	T, g, vsini, log_f = theta
 	# NP Defining parameters
-	print(T, g, vsini)
+	print(T, g, vsini, log_f)
 	# NP Printing parameters
 	try:
 		if((15000 < T < 50000) & (2 < g < 5) & (0 < vsini < \
-			800)):
+			800) & (-10 < log_f < -1)):
 			spec = data[index]
 			# NP Finding spectrum
 			wavs = wavl[index]
 			# NP Finding wavelengths
 			specspline = CubicSpline(wavs, spec)
 			# NP Creating cubic spline of spectrum
-			mask1 = wavs > 4256
+			mask1 = wavs > 4030
 			# NP Limiting blue continuum to greater than
 			# NP 4256 Angstroms
-			mask2 = wavs < 4264
+			mask2 = wavs < 4060
 			# NP Limiting blue continuum to less than 4264
 			# NP Angstroms
 			mask3 = np.logical_and(mask1, mask2)
@@ -336,72 +338,129 @@ def log_likelihood_T(theta, x, y, yerr):
 			# NP Definining red continuum
 			wavs2, smodel = interpspectra(T, g, False)
 			# Interpolating to desired T and log g
-			z = wavs *16.712/(3e5)
-			# NP Defining wavelength shift
 
-			mask1 = wavs2 > 4021
+			scale = len(wavs2) /(np.max(wavs2) -np.min(wavs))
+			convmodel = gaussian_filter(smodel, sigma = \
+				4250 *scale *vsini /2 /3e5)
+			convmodelspline = CubicSpline(wavs2, smodel(wavs2))
+			bsigma = np.std(bluewavs) **2 +np.exp(2 *log_f)
+			n, chi_1 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4100, bsigma)			
+			N1 = n -3
+			n, chi_2 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4009, bsigma)			
+			N2 = n -3
+
+			n, chi_3 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4026, bsigma)			
+			N3 = n -3
+
+			n, chi_4 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4121, bsigma)			
+			N4 = n -3
+
+			n, chi_5 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4144, bsigma)			
+			N5 = n -3
+
+			n, chi_6 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4129, bsigma)			
+			N6 = n -3
+
+			n, chi_7 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4200, bsigma)			
+			N7 = n -3
+
+			n, chi_8 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4340, bsigma)			
+			N8 = n -3
+
+			n, chi_9 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4387, bsigma)			
+			N9 = n -3
+
+			n, chi_10 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4340, bsigma)			
+			N10 = n -3
+
+			n, chi_11 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4471, bsigma)			
+			N11 = n -3
+
+			n, chi_12 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4481, bsigma)			
+			N12 = n -3
+
+			n, chi_13 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4486, bsigma)			
+			N13 = n -3
+
+			n, chi_14 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4504, bsigma)			
+			N14 = n -3
+
+			n, chi_15 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4541, bsigma)			
+			N15 = n -3
+
+			n, chi_16 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4568, bsigma)			
+			N16 = n -3
+
+			n, chi_17 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4575, bsigma)			
+			N17 = n -3
+
+			n, chi_18 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4656, bsigma)			
+			N18 = n -3
+
+			n, chi_19 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4686, bsigma)			
+			N19 = n -3
+
+			n, chi_20 = line_evaluate(convmodelspline, \
+				specspline, wavs, 4713, bsigma)			
+			N20 = n -3
+
+			#mask1 = wavs2 > 4300
 			# NP Limiting blue model to greater than 3990
-			# NP Angstroms
-			mask2 = wavs2 < 4031
-			# NP Limiting blue model to less than 4410
-			# NP Angstromgs
-			mask3 = np.logical_and(mask1, mask2)
-			# NP Combining limitations
-			convmodel = fastRotBroad(wavs2[mask3], \
-				smodel(wavs2[mask3]), 0.0, vsini)
-			print(len(convmodel))
-			print(len(smodel(wavs2[mask3])))
-			print(len(wavs2[mask3]))
-			convmodelspline = CubicSpline(wavs2[mask3],\
-				convmodel)
-			model = convmodelspline(wavs2[mask3])
-			y = specspline(wavs2[mask3] +wavs2[mask3]\
-				*16.712/3e5)
-			bsigma = np.std(bluewavs) **2
-			chi_b = np.sum((y -model) **2 /bsigma)
-			N = len(wavs2[mask3]) -3
 			
-			# NP Combining limitations
-			#convmodel = fastRotBroad(wavs2, smodel(\
-			#	wavs2), 0.3, vsini)
-			# NP Creating a convolved model to desired
-			# NP vsini
-			#convmodelspline = CubicSpline(wavs2, \
-			#	convmodel)
-			# NP Creating a spline of the convolved model
-			#model = convmodelspline(wavs[mask_f])
-			#y = specspline(wavs[mask_f] +z[mask_f])
-			#bsigma = np.std(bluewavs) **2
-			#chi_b = np.sum((y -model) **2 /bsigma)
-			#N = len(wavs[mask_f]) -3
+			logprob1 = chi2.logpdf(chi_1, N1)
+			logprob2 = chi2.logpdf(chi_2, N2)
+			logprob3 = chi2.logpdf(chi_3, N3)
+			logprob4 = chi2.logpdf(chi_4, N4)
+			logprob5 = chi2.logpdf(chi_5, N5)
+			logprob6 = chi2.logpdf(chi_6, N6)
+			logprob7 = chi2.logpdf(chi_7, N7)
+			logprob8 = chi2.logpdf(chi_8, N8)
+			logprob9 = chi2.logpdf(chi_9, N9)
+			logprob10 = chi2.logpdf(chi_10, N10)
+			logprob11 = chi2.logpdf(chi_11, N11)
+			logprob12 = chi2.logpdf(chi_12, N12)
+			logprob13 = chi2.logpdf(chi_13, N13)
+			logprob14 = chi2.logpdf(chi_14, N14)
+			logprob15 = chi2.logpdf(chi_15, N15)
+			logprob16 = chi2.logpdf(chi_16, N16)
+			logprob17 = chi2.logpdf(chi_17, N17)
+			logprob18 = chi2.logpdf(chi_18, N18)
+			logprob19 = chi2.logpdf(chi_19, N19)
+			logprob20 = chi2.logpdf(chi_20, N20)
 
-			#mask1 = wavs2 > 4455
-			#mask2 = wavs2 < 5010
-			#mask3 = np.logical_and(mask1, mask2)
-			#convmodel = fastRotBroad(wavs2[mask3], \
-			#	smodel[mask3], 0.3, vsini)
-			#convmodelspline = CubicSpline(wavs2[mask3], \
-			#	convmodel)
-			#mask1 = wavs > 4465
-			#mask2 = wavs < 5000
-			#mask3 = np.logical_and(mask1, mask2)
-			#model = convmodelspline(wavs[mask3])
-			#y = specspline(wavs[mask3] +z[mask3])
-			#rsigma = np.std(redwavs) **2
-			#chi_r = np.sum((y -model) **2 /rsigma)
-			#N += len(wavs[mask3])
-			
-			logprob1 = chi2.logpdf(chi_b, N)
-
-			logprobtot = logprob1# +logprob2
+			logprobtot = logprob1 +logprob2 +logprob3 \
+				+logprob4 +logprob5 +logprob6 \
+				+logprob7 +logprob8 +logprob9 \
+				+logprob10 +logprob11 +logprob12 \
+				+logprob13 +logprob14 +logprob15 \
+				+logprob16 +logprob17 +logprob18 \
+				+logprob19 +logprob20
 			s = open('/d/hya1/BS/emcee/temp/' +snames[index]\
 				+'.dat', 'a')
 			datastr = '{0:5.5f}\t{1:5.5f}\t{2:5.5f}\t' \
-				'{3:5.5f}\t{4:5.5f}\t{5:5.5f}'\
-				'\t{6:5.5f}\n'\
-				.format(T, vsini, z[0], chi_b, \
-				logprobtot, bsigma **0.5, (chi_b \
-				+0) /N)
+				'{3:5.5f}\t{4:5.5f}\t{5:5.5f}\n'\
+				.format(T, vsini, chi_1, \
+				logprobtot, bsigma **0.5, (chi_1 \
+				+0) /N1)
 			s.write(datastr)
 			s.close()
 			return logprobtot
@@ -412,6 +471,15 @@ def log_likelihood_T(theta, x, y, yerr):
 		traceback.print_exc()
 		return -np.inf
 
+def line_evaluate(model, spec, w, lmbda, sigma):
+	mask1 = w < lmbda +5
+	mask2 = w > lmbda -5
+	mask3 = np.logical_and(mask1, mask2)
+	wavelengths = w[mask3]
+	chi2 = np.sum((model(wavelengths) -spec(wavelengths)) \
+		**2 /sigma)
+	return len(wavelengths), chi2
+
 def log_probability_T(theta, x, y, yerr):
 	lp = log_prior(theta)
 	if not np.isfinite(lp):
@@ -419,7 +487,7 @@ def log_probability_T(theta, x, y, yerr):
 	return lp + log_likelihood_T(theta, x, y, yerr)
 
 def log_prior(theta):
-	T, g, vsini = theta
+	T, g, vsini, log_f = theta
 	if 15000 < T < 50000 and 2 < g < 5 and 0 < vsini < 800:
 		return 0.0
 	return -np.inf
@@ -428,15 +496,15 @@ def mcmc(t, g, v):
 	T_true = t
 	g_true = g
 	vsini_true = v
+	log_f_true = -2
 	# NP Setting best-fit temperature, log g, vsini and radial
 	# NP velocity presets.
 	nll = lambda *args: -log_likelihood_T(*args)
-	initial = np.array([T_true, g_true, vsini_true])\
-		+0.1 * np.random.randn(3)
+	initial = np.array([T_true, g_true, vsini_true, log_f_true])\
+		+0.1 * np.random.randn(4)
 	soln = minimize(nll, initial, args=(ints[1][0:3], ints[1][0:3]\
-		, ints[1][0:3]))
-
-	pos = soln.x + 1e-4 * np.random.randn(32, 3)
+		,ints[1][0:3]))
+	pos = soln.x + 1e-4 * np.random.randn(32, 4)
 	nwalkers, ndim = pos.shape
 	sampler = emcee.EnsembleSampler(nwalkers, ndim, \
 		log_probability_T, args=(ints[1][0:3], ints[1][0:3], \
@@ -444,8 +512,9 @@ def mcmc(t, g, v):
 	sampler.run_mcmc(pos, 5000, progress=True);
 
 	from IPython.display import display, Math
-	flat_samples = sampler.get_chain(discard=600, thin=15, flat=True)
-	labels = ["T", "logg", "vsini"]
+	flat_samples = sampler.get_chain(discard=600, thin=15,\
+		flat=True)
+	labels = ["T", "logg", "vsini", "log_f"]
 	txt = ""
 	for i in range(ndim):
 		mcmc = np.percentile(flat_samples[:, i], [16, 50, 84])
@@ -458,27 +527,195 @@ def mcmc(t, g, v):
 	Tguess = np.percentile(flat_samples[:, 0], [50])
 	gguess = np.percentile(flat_samples[:, 1], [50])
 	vsiniguess = np.percentile(flat_samples[:, 2], [50])
-	f = plt.figure(facecolor = 'white', figsize = [16, 10])
-	plt.xlim(3800, 5000)
+	logfguess = np.percentile(flat_samples[:, 3], [50])
+
+	f = plt.figure(facecolor = 'white', figsize = [24, 6])
 	wmodel, model = interpspectra(Tguess, gguess, False)
 	splspec = CubicSpline(wavl[index], data[index])
-	zguess = wmodel *16.712 /(3e5)
-	plt.plot(wmodel, splspec(wmodel -zguess), 'r', label = \
-		snames[index])
+	colors = ['red', 'orange', 'green', 'blue', 'purple']
+	cindex = int(len(colors) *random.random())
 	convmodel = rotBroad(wmodel, model(wmodel), 0.3, vsiniguess)
 	conmodelspl = CubicSpline(wmodel, convmodel)
+
+	plt.subplot(1, 3, 1)
+	plt.plot(wmodel, splspec(wmodel), color = \
+		colors[cindex], label = snames[index])
 	plt.plot(wmodel, conmodelspl(wmodel), '--k', label = \
 		'Best fit params')
+	plt.axvline(x=4009, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4009, 1.035, r'He I')
+	plt.axvline(x=4026, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4026, 1.035, r'He I+II')
+	plt.axvline(x=4058, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4058, 1.035, r'N IV')
+	plt.axvline(x=4069, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4071, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.hlines(y = 1.03, xmin = 4069, xmax = 4071, color = 'k'\
+		, linewidth = 1)
+	plt.text(4072, 1.035, r'C III')
+	plt.axvline(x=4089, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4089, 1.035, r'Si IV')
+	plt.axvline(x=4101, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4101, 1.035, r'H$\delta$')
+	plt.axvline(x=4116, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4116-6, 1.035, r'Si IV')
+	plt.axvline(x=4121, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4121, 1.035, r'He I')
+	plt.axvline(x=4128, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4130, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.hlines(y = 1.03, xmin = 4128, xmax = 4130, color = 'k'\
+		, linewidth = 1)
+	plt.text(4129+2, 1.035, r'Si II')
+	plt.axvline(x=4144, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4144, 1.035, r'He I')
+	plt.axvline(x=4200, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4188, 1.035, r'He II')
+	plt.xlim(4000, 4205)
 	plt.ylim(0.65, 1.05)
-	plt.legend()
 	plt.xlabel(r'$\AA$')
-	plt.text(5010, 1, txt, fontsize = 'x-large')
+
+	plt.subplot(1, 3, 2)
+	plt.plot(wmodel, splspec(wmodel), color = \
+		colors[cindex], label = snames[index])
+	plt.plot(wmodel, conmodelspl(wmodel), '--k', label = \
+		'Best fit params')
+	plt.axvline(x=4340, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4340, 1.035, r'H$\gamma$')
+	plt.axvline(x=4350, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4350, 1.035, r'O II')
+	plt.axvline(x=4379, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4375, 1.035, r'N III')
+	plt.axvline(x=4387, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4387, 1.035, r'He I')
+	plt.axvline(x=4415, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4417, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.hlines(y = 1.03, xmin = 4415, xmax = 4417, color = 'k'\
+		, linewidth = 1)
+	plt.text(4412, 1.035, r'O II')
+	plt.axvline(x=4420, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4440, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.hlines(y = 1.03, xmin = 4420, xmax = 4440, color = 'k'\
+		, linewidth = 1)
+	plt.text(4422, 1.035, r'IS band')
+	plt.axvline(x=4471, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4471-10, 1.035, r'He I')
+	plt.axvline(x=4481, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4481-10, 1.035, r'Mg II')
+	plt.axvline(x=4486, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4504, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.hlines(y = 1.03, xmin = 4486, xmax = 4504, color = 'k'\
+		, linewidth = 1)
+	plt.text(4490, 1.035, r'Si IV')
+	plt.xlim(4300, 4505)
+	plt.ylim(0.65, 1.05)
+	plt.xlabel(r'$\AA$')
+
+	plt.subplot(1, 3, 3)
+	plt.plot(wmodel, splspec(wmodel), color = \
+		colors[cindex], label = snames[index])
+	plt.plot(wmodel, conmodelspl(wmodel), '--k', label = \
+		'Best fit params')
+	plt.axvline(x=4511, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4515, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.hlines(y = 1.03, xmin = 4511, xmax = 4515, color = 'k'\
+		, linewidth = 1)
+	plt.text(4506, 1.035, r'N III')
+	plt.axvline(x=4541, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4541-12, 1.035, r'He II')
+	plt.axvline(x=4552, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4568, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4575, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.hlines(y = 1.03, xmin = 4552, xmax = 4575, color = 'k'\
+		, linewidth = 1)
+	plt.text(4555, 1.035, r'Si III')
+	plt.axvline(x=4604, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4620, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.hlines(y = 1.03, xmin = 4604, xmax = 4620, color = 'k'\
+		, linewidth = 1)
+	plt.text(4602, 1.035, r'N V')
+	plt.axvline(x=4634, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4640, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4642, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.hlines(y = 1.03, xmin = 4634, xmax = 4642, color = 'k'\
+		, linewidth = 1)
+	plt.text(4632, 1.035, r'N III')
+	plt.axvline(x=4640, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.axvline(x=4650, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.hlines(y = 1.03, xmin = 4640, xmax = 4650, color = 'k'\
+		, linewidth = 1)
+	plt.text(4648, 1.035, r'O II')
+	plt.axvline(x=4631, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4631-14, 1.035, r'N II')
+	plt.axvline(x=4647, color= 'k', linewidth = 1, ymax = 0.60\
+		, ymin = 0.55)
+	plt.axvline(x=4652, color= 'k', linewidth = 1, ymax = 0.60\
+		, ymin = 0.55)
+	plt.hlines(y = 0.87, xmin = 4647, xmax = 4652, color = 'k'\
+		, linewidth = 1)
+	plt.text(4630, 0.87, r'C III')
+	plt.axvline(x=4654, color= 'k', linewidth = 1, ymax = 0.60\
+		, ymin = 0.55)
+	plt.text(4656, 0.87, r'Si IV')
+	plt.axvline(x=4658, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4662, 1.035, r'C IV')
+	plt.axvline(x=4686, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4686, 1.035, r'He II')
+	plt.axvline(x=4713, color= 'k', linewidth = 1, ymax = 0.95\
+		, ymin = 0.90)
+	plt.text(4713, 1.035, r'He I')
+	plt.xlim(4500, 4800)
+	plt.ylim(0.65, 1.05)
+	plt.xlabel(r'$\AA$')
+	#plt.text(5010, 1, txt, fontsize = 'x-large')
 	plt.savefig('/d/www/nikhil/public_html/research/emcee/temp'\
 		'/' +snames[index] +'fullemceefittedparams.png', \
 		bbox_inches ='tight')
 	plt.show()
+	# NP Plotting best-fit parameters
 
-	flat_samples = sampler.get_chain(discard=600, thin=15, flat=True)
+	flat_samples = sampler.get_chain(discard=600, thin=15,\
+		flat=True)
 	fig = corner.corner(flat_samples, labels = labels)
 	fig.set_facecolor('white')
 	fig.show()
@@ -487,12 +724,13 @@ def mcmc(t, g, v):
 	plt.show()
 
 if(__name__ == '__main__'):
-	parser = argparse.ArgumentParser(description = 'Program to run\
-		run MCMC fitting on spectra to find temperature, log g\
-		vsini and redshift/blueshift with uncertainties.')
+	parser = argparse.ArgumentParser(description = 'Program to\
+		run MCMC fitting on spectra to find temperature, \
+		log g  and vsini with uncertainties.')
 	# NP Adding description of program
-	parser.add_argument('spec', type = str, help = 'BS identifier of\
-		the bowshock object. Example: \'BS013\'.')
+	parser.add_argument('spec', type = str, help = 'BS \
+		identifier of the bowshock object. Example: \
+		BS013.')
 	# NP Adding description of parsers
 	args = parser.parse_args()
 	# NP Adding parsers
@@ -501,9 +739,10 @@ if(__name__ == '__main__'):
 	if(~np.isnan(bestT +bestg +bestv)):
 		index = np.argwhere(snames == args.spec)[0][0]
 		# NP Finding index of desired spectrum
-		mcmc(bestT, bestg, bestv)
+		#mcmc(bestT, bestg, bestv)
 		# NP Running MCMC on the desired spectrum
-		bestchi = np.min(np.loadtxt('/d/hya1/BS/emcee/temp/' \
-			+snames[index] +'.dat', usecols = [6]))
+		chis = np.loadtxt('/d/hya1/BS/emcee/temp/' \
+			+snames[index] +'.dat', usecols = [5])
+		bestchi = chis[np.argmin(np.abs(chis -1))]
 		# NP Reading best reduced chi-squared
 		print('best chi2: ' +str(bestchi))
