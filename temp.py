@@ -3,7 +3,6 @@ import emcee
 import corner
 import random
 import argparse
-import traceback
 import numpy as np
 from astropy.io import fits
 from scipy.stats import chi2
@@ -26,52 +25,35 @@ def getmodels(APO):
 	'''
 	if APO:
 		print('Reading in APO model spectra.\n')
-		cdir = '/d/hya1/BS/model_spectra/conv/'
+		cdir = '/d/hya1/BS/model_spectra/PoWR/APO/'
 		# NP Directory for convolved spectra
-		cnames = np.array(os.listdir(cdir))
-		# NP Convolved model names
-		cifiles = [n[-4:] == '.txt' for n in cnames]
-		# NP Limiting to only text files
-		cmodel = [np.loadtxt(cdir +i, usecols = (0, 1)) for i in \
-			cnames[cifiles]]
-		# NP reading in model data
-		ctemps = np.array([float(n[-12:-7]) for n in \
-			cnames[cifiles]])
-		# NP Finding temperature information for each model
-		cgs = np.array([float(n[-7:-4]) /100 for n in \
-			cnames[cifiles]])
-		# NP Finding gravity information for each model
-		vsini = np.array([float(n[4:-12]) for n in \
-			cnames[cifiles]])
-		# NP Finding vsini convolution for model
-		cwavls = [i.T[0] for i in cmodel]
-		# NP Reading in vacuum wavelengths
-		cints = [i.T[1] for i in cmodel]
-		# NP Reading in convolved model intensities
 	else:
 		print('Reading in WIRO model spectra.\n')
-		cdir = '/d/hya1/BS/model_spectra/wiro_conv/'
+		cdir = '/d/hya1/BS/model_spectra/PoWR/WIRO/'
 		# NP Directory for convolved spectra
-		cnames = np.array(os.listdir(cdir))
-		# NP Convolved model names
-		cifiles = [n[-4:] == '.txt' for n in cnames]
-		# NP Limiting to only text files
-		cmodel = [np.loadtxt(cdir +i, usecols = (0, 1)) for i in \
-			cnames[cifiles]]
-		# NP reading in model data
-		ctemps = np.array([float(n[-12:-7]) for n in \
-			cnames[cifiles]])
-		# NP Finding temperature information for each model
-		cgs = np.array([float(n[-7:-4]) /100 for n in \
-			cnames[cifiles]])
-		# NP Finding gravity information for each model
-		vsini = np.array([float(n[4:-12]) for n in \
-			cnames[cifiles]])
-		# NP Finding vsini convolution for model
-		cwavls = [i.T[0] for i in cmodel]
-		# NP Reading in vacuum wavelengths
-		cints = [i.T[1] for i in cmodel]
-		# NP Reading in convolved model intensities
+	cnames = np.array(os.listdir(cdir))
+	# NP Convolved model names
+	cifiles = [n[-4:] == '.txt' for n in cnames]
+	# NP Limiting to only text files
+	cmodel = [np.genfromtxt(cdir +i, filling_values= \
+		{0:'-111'}, dtype = str, delimiter = \
+		'         ') for i in cnames[cifiles]]
+	# NP reading in model data
+	ctemps = np.array([float(n[-12:-7]) for n in \
+		cnames[cifiles]])
+	# NP Finding temperature information for each model
+	cgs = np.array([float(n[-7:-4]) /100 for n in \
+		cnames[cifiles]])
+	# NP Finding gravity information for each model
+	vsini = np.array([float(n[4:-12]) for n in \
+		cnames[cifiles]])
+	# NP Finding vsini convolution for model
+	cwavls = np.array([np.array([float(i[0:8]) for \
+		i in l])for l in cmodel], dtype = object)
+	# NP Reading in vacuum wavelengths
+	cints = np.array([np.array([float(i[8:]) for i in \
+		l])for l in cmodel], dtype = object)
+	# NP Reading in convolved model intensities
 	return ctemps, cgs, vsini, cwavls, cints
 	print('Done!\n')
 
@@ -219,7 +201,7 @@ def interpspectra(T_targ, g_targ, v_targ, plot):
 		c1 = c01 *(1 -T_d) +c11 *T_d
 		# NP Finding bilinear interpolation between T with
 		# NP interpolated log g and high vsini
-		wav_new = np.linspace(3700, 5800, 5000)
+		wav_new = np.linspace(3950, 5900, 4096)
 		# NP Creating wavelength array to evalueate splines 
 		# NP over
 		spl_zero = CubicSpline(wavs1, c0)
@@ -236,7 +218,7 @@ def interpspectra(T_targ, g_targ, v_targ, plot):
 		# NP extensively when writing this function. A lot of
 		# NP the labels and variable names reflect this
 		# NP influence. See this page for clarification and
-		# NP visualization
+		# NP visualization:
 		# NP https://en.wikipedia.org/wiki/Trilinear_interpolation
 		if(plot):
 		# NP If plotting is desired:
@@ -254,7 +236,7 @@ def interpspectra(T_targ, g_targ, v_targ, plot):
 			# NP Plotting c0 interpolation
 			plt.plot(wav_new, spline(wav_new), label ='c')
 			# NP Plotting c interpolation
-			plt.plot(wavl[index], data[index])
+			plt.plot(wavl[sindex], data[sindex])
 			# NP Plotting interpolated spectrum
 			plt.legend()
 			# NP Adding a legend
@@ -272,8 +254,9 @@ def interpspectra(T_targ, g_targ, v_targ, plot):
 		# NP Print this string if temperature could not be
 		# NP interpolated
 	except ValueError:
-		print('Could not interpolate these parameters!\n')
-		print(T_targ, g_targ, v_targ)
+		print('Could not interpolate these parameters!')
+		print('->' +str(T_targ) +' ' +str(g_targ) +' ' +\
+			str(v_targ))
 		# NP Print this string if temperature could not be
 		# NP interpolated
 
@@ -281,7 +264,8 @@ def log_likelihood_T(theta, x, y, yerr):
 	T, g, vsini = theta
 	# NP Defining parameters
 	try:
-		if 15000 < T < 55000 and 2 < g < 5 and 10 < vsini < 600:
+		if 15000 < T < 56000 and 2 < g < 4.20 and \
+			10 < vsini < 600:
 			spec = data
 			# NP Finding spectrum
 			wavs = wavl
@@ -320,133 +304,108 @@ def log_likelihood_T(theta, x, y, yerr):
 				N1, chi_1 = line_evaluate(smodel, \
 					specspline, wavs, 4009, bsigma)		
 				# NP Comparing He I 4009
-
 				N2, chi_2 = line_evaluate(smodel, \
 					specspline, wavs, 4026, bsigma)			
 				# NP Comparing He I+II 4026
-
 				N3, chi_3 = line_evaluate(smodel, \
 					specspline, wavs, 4089, bsigma)			
 				# NP Comparing Si IV 4089
-
 				N4, chi_4 = line_evaluate(smodel, \
 					specspline, wavs, 4101, bsigma)			
 				# NP Comparing H delta 4101
-
 				N5, chi_5 = line_evaluate(smodel, \
-					specspline, wavs, 4116, bsigma)			
-				# NP Comparing Si IV 4116
-
-				N6, chi_6 = line_evaluate(smodel, \
 					specspline, wavs, 4121, bsigma)			
 				# NP Comparing He I 4121
-
-				N7, chi_7 = line_evaluate(smodel, \
+				N6, chi_6 = line_evaluate(smodel, \
 					specspline, wavs, 4144, bsigma)			
 				# NP Comparing He I 4121
-
-				N8, chi_8 = line_evaluate(smodel, \
+				N7, chi_7 = line_evaluate(smodel, \
 					specspline, wavs, 4200, bsigma)			
 				# NP Comparing He II 4200
-
-				N9, chi_9 = line_evaluate(smodel, \
+				N8, chi_8 = line_evaluate(smodel, \
 					specspline, wavs, 4340, bsigma)			
 				# NP Comparing H gamma 4340
-
-				N10, chi_10 = line_evaluate(smodel, \
+				N9, chi_9 = line_evaluate(smodel, \
 					specspline, wavs, 4387, bsigma)	
 				# NP Comparing He I 4387
-
-				N11, chi_11 = line_evaluate(smodel, \
+				N10, chi_10 = line_evaluate(smodel, \
 					specspline, wavs, 4471, bsigma)			
 				# NP Comparing He I 4471
-
-				N12, chi_12 = line_evaluate(smodel, \
+				N11, chi_11 = line_evaluate(smodel, \
 					specspline, wavs, 4481, bsigma)			
 				# NP Comparing Mg II 4481
-
-				N13, chi_13 = line_evaluate(smodel, \
+				N12, chi_12 = line_evaluate(smodel, \
 					specspline, wavs, 4541, bsigma)			
 				# NP Comparing He II 4541
-
-				N14, chi_14 = line_evaluate(smodel, \
+				N13, chi_13 = line_evaluate(smodel, \
 					specspline, wavs, 4552, bsigma)			
 				# NP Comparing Si IV 4552
-
+				N14, chi_14 = line_evaluate(smodel, \
+					specspline, wavs, 5048, bsigma)			
+				# NP Comparing He I 5048
+				N15, chi_15 = line_evaluate(smodel, \
+					specspline, wavs, 5412, bsigma)			
+				# NP Comparing He II 5412
 				chi_total = chi_1 +chi_2 +chi_3 +chi_4 \
 					+chi_5 +chi_6 +chi_7 +chi_8 \
 					+chi_9 +chi_10 +chi_11 \
-					+chi_12 +chi_13 +chi_14
+					+chi_12 +chi_13 +chi_14 \
+					+chi_15
 				# NP Summing chi squares of all lines
 				Ntot = N1 +N2 +N3 +N4 +N5 +N6 +N7 +N8 \
-					+N9 +N10 +N11 +N12 +N13 +N14 -3
+					+N9 +N10 +N11 +N12 +N13 +N14 \
+					+N15 -3
 				# NP Summing 
 				logprobtot = chi2.logpdf(chi_total, Ntot)
 			else:
 				N1, chi_1 = line_evaluate(smodel, \
 					specspline, wavs, 4200, bsigma)			
 				# NP Comparing He II 4200
-
 				N2, chi_2 = line_evaluate(smodel, \
 					specspline, wavs, 4340, bsigma)			
 				# NP Comparing H gamma
-
 				N3, chi_3 = line_evaluate(smodel, \
 					specspline, wavs, 4387, bsigma)			
 				# NP Comparing He I 4387
-
 				N4, chi_4 = line_evaluate(smodel, \
 					specspline, wavs, 4471, bsigma)			
 				# NP Comparing He I 4471
-
 				N5, chi_5 = line_evaluate(smodel, \
 					specspline, wavs, 4481, bsigma)			
 				# NP Comparing Mg II 4481
-
 				N6, chi_6 = line_evaluate(smodel, \
 					specspline, wavs, 4541, bsigma)			
 				# NP Comparing He II 4541
-
 				N7, chi_7 = line_evaluate(smodel, \
 					specspline, wavs, 4552, bsigma)			
 				# NP Comparing Si III 4552
-
 				N8, chi_8 = line_evaluate(smodel, \
 					specspline, wavs, 4568, bsigma)			
 				# NP Comparing Si III 4568
-
 				N9, chi_9 = line_evaluate(smodel, \
 					specspline, wavs, 4575, bsigma)			
 				# NP Comparing Si III 4575
-
 				N10, chi_10 = line_evaluate(smodel, \
 					specspline, wavs, 4686, bsigma)			
 				# NP Comparing He II 4686
-
 				N11, chi_11 = line_evaluate(smodel, \
 					specspline, wavs, 4713, bsigma)			
 				# NP Comparing He I 4713
-
 				N12, chi_12 = line_evaluate(smodel, \
 					specspline, wavs, 4813, bsigma)			
 				# NP Comparing Si III 4813
-
 				N13, chi_13 = line_evaluate(smodel, \
 					specspline, wavs, 4820, bsigma)			
 				# NP Comparing Si III 4820
-
 				N14, chi_14 = line_evaluate(smodel, \
 					specspline, wavs, 4829, bsigma)			
 				# NP Comparing Si III 4829
-
 				N15, chi_15 = line_evaluate(smodel, \
 					specspline, wavs, 4861, bsigma)			
 				# NP Comparing H Beta
-
 				N16, chi_16 = line_evaluate(smodel, \
 					specspline, wavs, 4922, bsigma)			
 				# NP Comparing He I 4922
-
 				chi_total = chi_1 +chi_2 +chi_3 \
 					+chi_4 +chi_5 +chi_6 +chi_7 \
 					+chi_8 +chi_9 +chi_10 +chi_11\
@@ -456,25 +415,29 @@ def log_likelihood_T(theta, x, y, yerr):
 				Ntot = N1 +N2 +N3 +N4 +N5 +N6 +N7 +N8 \
 					+N9 +N10 +N11 +N12 +N13 +N14 \
 					+N15 +N16 -3
-				# NP Summing 
+				# NP Summing number of data points
 				logprobtot = chi2.logpdf(chi_total, \
 					Ntot)
 			s = open('./' +sname+'.dat', 'a')
+			# NP Opening data file
 			datastr = '{0:5.5f}\t{1:5.5f}\t{2:5.5f}\t' \
 				'{3:5.5f}\t{4:5.5f}\t{5:5.5f}\n'\
 				.format(T, g, vsini, logprobtot, \
 				bsigma**0.5, (chi_total) /Ntot)
+			#print(T, g, vsini, logprobtot)
 			# NP Writing out parameters of fit and
 			# NP indicators of fit to file
 			s.write(datastr)
+			# NP Updating data file
 			s.close()
+			# NP Closing data file
 			return logprobtot
 		else:
 		    	print('Skipping loop')
 		    	return -np.inf
 	except:
-		traceback.print_exc()
 		return -np.inf
+		pass
 
 def line_evaluate(model, spec, w, lmbda, sigma):
 	mask1 = w < lmbda +4
@@ -483,6 +446,8 @@ def line_evaluate(model, spec, w, lmbda, sigma):
 	# NP Searching within 4 angstroms left and right of identified
 	# NP feature
 	wavelengths = w[mask3]
+	# NP Limiting wavelength grid to within 4 Angstroms of
+	# NP specified line
 	chi2 = np.sum((model(wavelengths) -spec(wavelengths)) \
 		**2 /sigma)
 	# NP Evaluating chi squared for the line profile
@@ -507,7 +472,7 @@ def log_probability_T(theta, x, y, yerr):
 
 def log_prior(theta):
 	T, g, vsini = theta
-	if 15000 < T < 55000 and 2 < g < 5 and 10 < vsini < 600:
+	if 15000 < T < 56000 and 2 < g < 4.2 and 10 < vsini < 600:
 		return 0.0
 	return -np.inf
 	# NP Rejecting parameters outside of model space
@@ -521,13 +486,13 @@ def mcmc(t, g, v):
 	nll = lambda *args: -log_likelihood_T(*args)
 	initial = np.array([T_true, g_true, vsini_true])\
 		+0.1 * np.random.randn(3)
-	soln = minimize(nll, initial, args=(cints[1][0:3], cints[1][0:3]\
-		,cints[1][0:3]))
+	soln = minimize(nll, initial, args=(cints[1][0:3], \
+		cints[1][0:3], cints[1][0:3]))
 	pos = soln.x + 1e-4 * np.random.randn(32, 3)
 	nwalkers, ndim = pos.shape
 	sampler = emcee.EnsembleSampler(nwalkers, ndim, \
-		log_probability_T, args=(cints[1][0:3], cints[1][0:3], \
-		cints[1][0:3]))
+		log_probability_T, args=(cints[1][0:3], \
+		cints[1][0:3], cints[1][0:3]))
 	if args.chi == 1:
 		sampler.run_mcmc(pos, 1000, progress=True);
 	else:
@@ -738,7 +703,7 @@ if(__name__ == '__main__'):
 		'get more accurate uncertaines on parameters as well '
 		'as escape local minima. Example: 1.0000', default \
 		= 1.000)
-	# NP Adding description of parsers
+	# NP Adding description of arguments
 	args = parser.parse_args()
 	# NP Adding parsers
 	print('Reading in spectrum...\n')
@@ -755,30 +720,88 @@ if(__name__ == '__main__'):
 	crpix = hdr['CRPIX1']
 	# NP Finding starting pixel
 	wavl = crval +cdelt *(np.arange(0,len(data)))
+	# NP Creating wavelength array from header
 	goodindex = args.spec.rfind('/')
+	# NP Guessing a name by looking for the last '/' in the input
+	# NP file name
 	sname = args.spec[goodindex+1:goodindex+6]
+	# NP Choosing a name by selecting the first five characters
+	# NP after the last '/'
 	print('Name of object: ' +sname +'\n')
+	# NP Printing program's guess at the name
 	global APO 
 	APO = hdr['OBSERVAT'] == 'APO'
+	# NP Defining a global boolean indicating whether this is an
+	# NP APO KOSMOS spectrum
 	print('Determining which models to use.\n')
 	global ctemps, cgs, vsini, cwavls, cints
 	ctemps, cgs, vsini, cwavls, cints = getmodels(APO)
+	# NP Defining global variables for models used throughout the
+	# NP program
 	print('Estimating best fit parameters.\n')
 	bestT, bestg, bestv = guess(wavl, data)
 	# NP Getting best-fit paramaters
+	if bestT == 55000:
+		bestT = 52500
+	# NP Cathcing case where best-fit temperature is at the upper
+	# NP limit of the models, and lowering it so walkers don't walk
+	# NP outside of parameter space
+	if bestg == 4.75:
+		bestg == 4.50
+	# NP Cathcing case where best-fit gravity is at the upper
+	# NP limit of the models, and lowering it so walkers don't walk
+	# NP outside of parameter space
+	if bestT == 15000:
+		bestT = 16000
+	# NP Cathcing case where best-fit temperature is at the lower
+	# NP limit of the models, and raising it so walkers don't walk
+	# NP outside of parameter space
+	if bestv == 10:
+		bestv = 50
 	if(~np.isnan(bestT +bestg +bestv)):
 		s = open('./' +sname+'.dat', 'w')
+		# NP Creating data file
 		s.write(str(sname) +" params:\n")
+		# NP Writing initial paramter guesses to file
 		s.close()
+		# NP Closing file
 		mcmc(bestT, bestg, bestv)
 		# NP Running MCMC on the desired spectrum
 		chis = np.loadtxt('./'+sname +'.dat', usecols = [5], \
 			skiprows =1)
+		# NP Reading in chis from data file
 		bestchi = chis[np.argmin(chis)]
 		# NP Reading best reduced chi-squared
 		print('best chi2: ' +str(bestchi) +'\n')
 		sigguess = bestchi *args.chi
 		print('Guess at uncertainty factor: ' +str(sigguess) \
 			+'\n')
+		# NP Using best chi squared to guess at factor needed
+		# NP to multiply uncertainty by to get a reduced chi
+		# NP squared of one
 		print('Done!\n')
+
+
+# NP Version 1.03
+# NP
+# NP Changelog:
+# NP
+# NP Version 1.03:
+# NP Now prints the log probability of each trial 
+# NP
+# NP 10 July 2023
+# NP
+# NP Version 1.02:
+# NP Added a catch to prevent bestv from being too low
+# NP
+# NP Version 1.01:
+# NP Added a catch to interpolate between O and B star grid
+# NP
+# NP Version 1.0:
+# NP Along with being a really awesome and great program for analyzing
+# NP stellar spectra, this code can now catch instances where walkers
+# NP walk outside of parameter space.
+# NP
+# NP 6 July 2023
+
 
