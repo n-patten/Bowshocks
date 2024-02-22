@@ -3,16 +3,21 @@ import emcee
 import corner
 import random
 import argparse
+import traceback
 import numpy as np
+import matplotlib.pyplot as plt
+# NP Importing necessary packages
+
+from scipy import stats
 from astropy.io import fits
 from scipy.stats import chi2
-import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from scipy.optimize import curve_fit
 from scipy.interpolate import CubicSpline
-# NP Necessary imports
+from scipy.ndimage import gaussian_filter
+# NP Importing specific functions from packages
 
-def getmodels(APO):
+def get_POWR(APO):
 	'''Reads in model spectra for given instrument and sets model
 	variables
 	---------------------------------------------
@@ -25,11 +30,11 @@ def getmodels(APO):
 	'''
 	if APO:
 		print('Reading in APO model spectra.\n')
-		cdir = '/d/hya1/BS/model_spectra/PoWR/APO/'
+		cdir = '/d/hya1/nikhil/BS/model_spectra/PoWR/APO/'
 		# NP Directory for convolved spectra
 	else:
 		print('Reading in WIRO model spectra.\n')
-		cdir = '/d/hya1/BS/model_spectra/PoWR/WIRO/'
+		cdir = '/d/hya1/nikhil/BS/model_spectra/PoWR/WIRO/'
 		# NP Directory for convolved spectra
 	cnames = np.array(os.listdir(cdir))
 	# NP Convolved model names
@@ -57,9 +62,185 @@ def getmodels(APO):
 	return ctemps, cgs, vsini, cwavls, cints
 	print('Done!\n')
 
+def get_Bstars(APO):
+	'''Reads in model spectra for given instrument and sets model
+	variables
+	---------------------------------------------
+	Inputs
+	-APO: boolean. Boolean indicating whether spectrum was obtained
+	on APO KOSMOS spectrograph. Example: True
+	---------------------------------------------
+	Outputs
+	-None.
+	'''
+	if APO:
+		print('Reading in APO model spectra.\n')
+		cdir = '/d/hya1/nikhil/BS/model_spectra/TLUSTY/APO/BSTAR/'
+		# NP Directory for convolved spectra
+	else:
+		print('Reading in WIRO model spectra.\n')
+		cdir = '/d/hya1/nikhil/BS/model_spectra/TLUSTY/WIRO/BSTAR/'
+		# NP Directory for convolved spectra
+	print('Reading in B star models...\n')
+	cnames = np.array(os.listdir(cdir))
+	# NP Convolved model names
+	cifiles = [n[-4:] == '.txt' for n in cnames]
+	# NP Limiting to only text files
+	cmodel = [np.genfromtxt(cdir +i, filling_values= \
+		{0:'-111'}, dtype = str) for i in cnames[cifiles]]
+	# NP reading in model data
+	ctemps = np.array([float(n[-12:-7]) for n in \
+		cnames[cifiles]])
+	# NP Finding temperature information for each model
+	cgs = np.array([float(n[-7:-4]) /100 for n in \
+		cnames[cifiles]])
+	# NP Finding gravity information for each model
+	vsini = np.array([float(n[4:-12]) for n in \
+		cnames[cifiles]])
+	# NP Finding vsini convolution for model
+	cwavls = np.array([np.array([a[0] for a in i], \
+		dtype = float) for i in cmodel], dtype = object)
+	# NP Reading in vacuum wavelengths
+	cints = np.array([np.array([a[1] for a in i], \
+		dtype = float) for i in cmodel], dtype = object)
+	# NP Reading in convolved model intensities
+	return ctemps, cgs, vsini, cwavls, cints
+	print('Done!\n')
+
+def get_Ostars(APO):
+	'''Reads in model spectra for given instrument and sets model
+	variables
+	---------------------------------------------
+	Inputs
+	-APO: boolean. Boolean indicating whether spectrum was obtained
+	on APO KOSMOS spectrograph. Example: True
+	---------------------------------------------
+	Outputs
+	-None.
+	'''
+	if APO:
+		print('Reading in APO model spectra.\n')
+		cdir = '/d/hya1/nikhil/BS/model_spectra/TLUSTY/APO/OSTAR/'
+		# NP Directory for convolved spectra
+	else:
+		print('Reading in WIRO model spectra.\n')
+		cdir = '/d/hya1/nikhil/BS/model_spectra/TLUSTY/WIRO/OSTAR/'
+		# NP Directory for convolved spectra
+	print('Reading in O star models...\n')
+	cnames = np.array(os.listdir(cdir))
+	# NP Convolved model names
+	cifiles = [n[-4:] == '.txt' for n in cnames]
+	# NP Limiting to only text files
+	cmodel = [np.genfromtxt(cdir +i, filling_values= \
+		{0:'-111'}, dtype = str) for i in cnames[cifiles]]
+	# NP reading in model data
+	ctemps = np.array([float(n[-12:-7]) for n in \
+		cnames[cifiles]])
+	# NP Finding temperature information for each model
+	cgs = np.array([float(n[-7:-4]) /100 for n in \
+		cnames[cifiles]])
+	# NP Finding gravity information for each model
+	vsini = np.array([float(n[4:-12]) for n in \
+		cnames[cifiles]])
+	# NP Finding vsini convolution for model
+	cwavls = np.array([np.array([a[0] for a in i], \
+		dtype = float) for i in cmodel], dtype = object)
+	# NP Reading in vacuum wavelengths
+	cints = np.array([np.array([a[1] for a in i], \
+		dtype = float) for i in cmodel], dtype = object)
+	# NP Reading in convolved model intensities
+	return ctemps, cgs, vsini, cwavls, cints
+	print('Done!\n')
+
+def guessmodels(btemps, bgs, bvsini, bwavls, bints, otemps, ogs, \
+	ovsini, owavls, oints, wav, dat):
+	'''Guesses which grid of models to interpolate over in MCMC
+	fitting.
+	---------------------------------------------
+	Inputs
+	-btemps: np.array. Temperature grid of B models
+	-bgs: np.array. logg grid of B models
+	-bvsini: np.array. vsini grid of B models
+	-bwavls: np.array. Wavelength grid of B models.
+	-bints: np.array. Normalized intensity of B models.
+	-otemps: np.array. Temperature grid of O models
+	-ogs: np.array. logg grid of O models
+	-ovsini: np.array. vsini grid of O models
+	-owavls: np.array. Wavelength grid of O models.
+	-oints: np.array. Normalized intensity of O models.
+	-wav: np.array. Wavelength array of data spectrum.
+	-dat: np.array. Normalized data spectrum.
+	---------------------------------------------
+	Outputs
+	-temps. np.array. Temperature grid of chosen models.
+	-gs. np.array. log g grid of chosen models.
+	-vsini. -np.array. vsini grid of chosen models.
+	-wavls. np.array. Wavelength grid of chosen models.
+	-ints. np.array. Normalized spectrum grid of chosen models.
+	'''
+	bspectrumspline = CubicSpline(wav, dat)
+	# NP Creating a spline of the spectrum
+	btestrange = np.linspace(4000, 4990, 1000)
+	# NP Wavelength range to evaluate differences
+	# NP between models and spectra
+	bmodelsplines = [CubicSpline(bwavls[a], \
+		bints[a]) for a in range(len(bints))]
+	# NP Creating a spline of all model B spectra
+	bdiffs = np.array([np.array([((dat[ii] \
+		-bmodelsplines[i](wav[ii]))) for ii in \
+		range(len(wav)) if wav[ii] > 3900]) for i in \
+		range(len(bmodelsplines))])
+	# NP Evaluating deviation of data from each model spectrum
+	omodelsplines = [CubicSpline(owavls[a], \
+		oints[a]) for a in range(len(oints))]
+	# NP Creating a spline of all model O spectra
+	odiffs = np.array([np.array([((dat[ii] \
+		-omodelsplines[i](wav[ii]))) for ii in \
+		range(len(wav)) if wav[ii] > 3900]) for i in \
+		range(len(omodelsplines))])
+	# NP Evaluating deviation of data from each model spectrum
+	bmins = [np.min([np.sum(b **2) for b in bdiffs\
+		[btemps == t]]) for t in \
+		np.arange(15000, 31000, 1000)]
+	# NP Finding best-fit model at each temperature in the B grid
+	btempi = np.linspace(15000, 30000, 10000)
+	# NP Creating B grid temperature array
+	bspline = CubicSpline(np.arange(1.5e4, 3.1e4, 1e3), bmins)
+	# NP Interpolating over all models to find best-fit model in
+	# NP B grid
+	omins = [np.min([np.sum(o **2) for o in odiffs\
+		[otemps == t]]) for t in \
+		np.arange(27500, 57500, 2500)]
+	# NP Finding best-fit model at each temperature in the O grid
+	otempi = np.linspace(27500, 55000, 10000)
+	# Creating O grid temperature array
+	ospline = CubicSpline(np.arange(2.75e4, 5.75e4, 2.5e3), \
+		omins)
+	plt.plot(otempi, ospline(otempi), color = 'blue', \
+		label = 'OSTAR')
+	plt.plot(btempi, bspline(btempi), color = 'lightblue', \
+		label = 'BSTAR')
+	plt.legend()
+	# NP Interpolating over all models to find best-fit model in
+	# NP O grid
+	ochimin = np.min(ospline(otempi))
+	# NP Finding best-fit interpolated O model
+	bchimin = np.min(bspline(btempi))
+	# NP Finding best-fit interpolated B model
+	#print('B temp: ' +str(btemps[np.sum() == np.min(bmins)]))
+	#print('O temp: ' +str(otemps[odiffs == np.min(omins)]))
+	if ochimin < bchimin:
+		print('Choosing O star grid\n')
+		return otemps, ogs, ovsini, owavls, oints
+		# NP Choosing O grid if O models are best-fit
+	else:
+		print('Choosing B star grid\n')
+		return btemps, bgs, bvsini, bwavls, bints
+		# NP Choosing B grid if B models are best-fit
+
 def guess(wav, dat):
 	'''Guesses the parameters T, vsini and log g for a Bowshock
-	star.
+	star and returns a residual spectrum of the best-fit model.
 	---------------------------------------------
 	Inputs
 	-spec: str. BS identifier for the star. Example: 'BS013'.
@@ -68,6 +249,7 @@ def guess(wav, dat):
 	-t_test: float. Best fit parameter for temperaure in Kelvin.
 	-g_test: float. Best fit parameter for log g.
 	-v_test: float. Best fit parameter for vsini in km/s.
+	-resids: array. Residual spectrum of the best-fit model
 	'''
 	spectrumspline = CubicSpline(wav, dat)
 	# NP Creating a spline of the spectrum
@@ -77,11 +259,12 @@ def guess(wav, dat):
 	modelsplines = [CubicSpline(cwavls[a], \
 		cints[a]) for a in range(len(cints))]
 	# NP Creating a spline of all model spectra
-	diffs = [np.sum(np.abs(d(testrange) \
-		-spectrumspline(testrange)) **2) \
-		for d in modelsplines]
-	# NP Evaluating rough chi squared for each model
-	smin = np.argmin(diffs)
+	diffs = np.array([np.array([((dat[ii] \
+		-modelsplines[i](wav[ii]))) for ii in \
+		range(len(wav)) if wav[ii] > 3900]) for i in \
+		range(len(modelsplines))])
+	# NP Evaluating deviation of data from each model spectrum
+	smin = np.argmin([np.sum(r **2) for r in diffs])
 	# NP Finding minimum chi squared
 	print('T_eff: ' +str(ctemps[smin]))
 	print('log g: ' +str(cgs[smin]))
@@ -90,7 +273,7 @@ def guess(wav, dat):
 	t_test = ctemps[smin]
 	g_test = cgs[smin]
 	v_test = vsini[smin]
-	return t_test, g_test, v_test
+	return t_test, g_test, v_test, diffs[smin]
 	# NP Returning best-fit parameters
 
 def interpspectra(T_targ, g_targ, v_targ, plot):
@@ -100,7 +283,8 @@ def interpspectra(T_targ, g_targ, v_targ, plot):
 	spectra.
 	---------------------------------------------
 	Inputs
-	-T_targ: float. Target temperature to interpolate to in Kelvin.
+	-T_targ: float. Target temperature to interpolate to in
+	Kelvin
 	-g_targ: float. Target log g to interpolate to for models.
 	-plot: Boolean. Whether to plot the interpolated spectrum.
 	---------------------------------------------
@@ -118,94 +302,94 @@ def interpspectra(T_targ, g_targ, v_targ, plot):
 		vdiffs = vsini -v_targ
 		# NP Finding the rotational velocity differences
 		# between all model spectra and target gravity.
-		T_1 = T_targ +tempdiffs[tempdiffs < 0][np.argmin(\
+		T_0 = T_targ +tempdiffs[tempdiffs < 0][np.argmin(\
 			np.abs(tempdiffs[tempdiffs < 0]))]
 		# NP Finding lower temperature
-		T_2 = T_targ +tempdiffs[tempdiffs > 0][np.argmin(\
+		T_1 = T_targ +tempdiffs[tempdiffs > 0][np.argmin(\
 			np.abs(tempdiffs[tempdiffs > 0]))]
 		# NP Finding upper temperature
-		g_1 = g_targ +gdiffs[(ctemps == T_1) & (gdiffs < 0)]\
-			[np.argmin(np.abs(gdiffs[(ctemps == T_1) \
+		g_0 = g_targ +gdiffs[(ctemps == T_0) & (gdiffs < 0)]\
+			[np.argmin(np.abs(gdiffs[(ctemps == T_0) \
 			& (gdiffs < 0)]))]
 		# NP Finding lower gravity
-		g_2 = g_targ +gdiffs[(ctemps == T_2) & (gdiffs > 0)]\
-			[np.argmin(np.abs(gdiffs[(ctemps == T_2) \
+		g_1 = g_targ +gdiffs[(ctemps == T_1) & (gdiffs > 0)]\
+			[np.argmin(np.abs(gdiffs[(ctemps == T_1) \
 			& (gdiffs > 0)]))]
 		# NP Finding upper gravity
-		v_1 = v_targ +vdiffs[vdiffs < 0][np.argmin(\
+		v_0 = v_targ +vdiffs[vdiffs < 0][np.argmin(\
 			np.abs(vdiffs[vdiffs < 0]))]
 		# NP Finding lower gravity
-		v_2 = v_targ +vdiffs[vdiffs > 0][np.argmin(\
+		v_1 = v_targ +vdiffs[vdiffs > 0][np.argmin(\
 			np.abs(vdiffs[vdiffs > 0]))]
 		# NP Finding upper gravity
-		wavs1 = np.array(cwavls, dtype=object)[(cgs == g_1) \
-			& (ctemps == T_1) & (vsini == v_1)][0]
+		wavs0 = np.array(cwavls, dtype=object)[(cgs == g_0) \
+			& (ctemps == T_0) & (vsini == v_0)][0]
 		# NP Finding the lower convolution wavelengths
-		wavs2 = np.array(cwavls, dtype=object)[(cgs == g_1) \
-			& (ctemps == T_1) & (vsini == v_2)][0]
+		wavs1 = np.array(cwavls, dtype=object)[(cgs == g_0) \
+			& (ctemps == T_0) & (vsini == v_1)][0]
 		# NP Finding the higher convulation wavelengths
-		ints111 = np.array(cints, dtype=object)[(cgs == g_1) \
-			& (ctemps == T_1) & (vsini == v_1)][0]
+		ints000 = np.array(cints, dtype=object)[(cgs == g_0) \
+			& (ctemps == T_0) & (vsini == v_0)][0]
 		# NP Finding the model with low temperature low log g
 		# NP and low vsini
-		ints121 = np.array(cints, dtype=object)[(cgs == g_2) \
-			& (ctemps == T_1) & (vsini == v_1)][0]
+		ints010 = np.array(cints, dtype=object)[(cgs == g_1) \
+			& (ctemps == T_0) & (vsini == v_0)][0]
 		# NP Finding the model with low temperature high log g 
 		# NP and low vsini
-		ints211 = np.array(cints, dtype=object)[(cgs == g_1) \
-			& (ctemps == T_2) & (vsini == v_1)][0]
+		ints100 = np.array(cints, dtype=object)[(cgs == g_0) \
+			& (ctemps == T_1) & (vsini == v_0)][0]
 		# NP Finding the model with high temperature low log g 
 		# NP and low vsini
-		ints221 = np.array(cints, dtype=object)[(cgs == g_2) \
-			& (ctemps == T_2) & (vsini == v_1)][0]
-		# NP Finding the model with high temperature high log g 
-		# NP and low vsini
-		ints112 = np.array(cints, dtype=object)[(cgs == g_1) \
-			& (ctemps == T_1) & (vsini == v_2)][0]
+		ints001 = np.array(cints, dtype=object)[(cgs == g_0) \
+			& (ctemps == T_0) & (vsini == v_1)][0]
 		# NP Finding the model with low temperature low log g
 		# NP and high vsini
-		ints122 = np.array(cints, dtype=object)[(cgs == g_2) \
-			& (ctemps == T_1) & (vsini == v_2)][0]
+		ints110 = np.array(cints, dtype=object)[(cgs == g_1) \
+			& (ctemps == T_1) & (vsini == v_0)][0]
+		# NP Finding the model with high temperature high log g 
+		# NP and low vsini
+		ints011 = np.array(cints, dtype=object)[(cgs == g_1) \
+			& (ctemps == T_0) & (vsini == v_1)][0]
 		# NP Finding the model with low temperature high log g 
 		# NP and high vsini
-		ints212 = np.array(cints, dtype=object)[(cgs == g_1) \
-			& (ctemps == T_2) & (vsini == v_2)][0]
+		ints101 = np.array(cints, dtype=object)[(cgs == g_0) \
+			& (ctemps == T_1) & (vsini == v_1)][0]
 		# NP Finding the model with high temperature low log g
 		# NP and high vsini
-		ints222 = np.array(cints, dtype=object)[(cgs == g_2) \
-			& (ctemps == T_2) & (vsini == v_2)][0]
+		ints111 = np.array(cints, dtype=object)[(cgs == g_1) \
+			& (ctemps == T_1) & (vsini == v_1)][0]
 		# NP Finding the model with high temperature high log 
 		# NP g and high vsini
-		T_d = (T_targ -T_1) /(T_2 -T_1)
+		T_d = (T_targ -T_0) /(T_1 -T_0)
 		# NP Finding percent change in desired temperature
-		g_d = (g_targ -g_1) /(g_2 -g_1)
+		g_d = (g_targ -g_0) /(g_1 -g_0)
 		# NP Finding percent change in desired gravity
-		v_d = (v_targ -v_1) /(v_2 -v_1)
+		v_d = (v_targ -v_0) /(v_1 -v_0)
 		# NP Finding percent change in rotational velocity
-		c00 = ints211 *(1 -g_d) +ints221 *g_d
+		c00 = ints000 *(1 -T_d) +ints100 *T_d
 		# NP Finding bilinear interpolation between log g with
 		# NP low vsini and high T
-		c01 = ints212 *(1 -g_d) +ints222 *g_d
+		c01 = ints001 *(1 -T_d) +ints101 *T_d
 		# NP Finding bilinear interpolation between log g with
 		# NP high vsini and high T
-		c10 = ints111 *(1 -g_d) +ints121 *g_d
+		c10 = ints010 *(1 -T_d) +ints110 *T_d
 		# NP Finding bilinear interpolation between log g with
 		# NP low vsini and low T
-		c11 = ints112 *(1 -g_d) +ints122 *g_d
+		c11 = ints011 *(1 -T_d) +ints111 *T_d
 		# NP Finding bilinear interpolation between log g with
 		# NP high vsini and low T
-		c0 = c00 *(1 -T_d) +c10 *T_d
+		c0 = c00 *(1 -g_d) +c10 *g_d
 		# NP Finding bilinear interpolation between T with
 		# NP interpolated log g and low
 		# NP vsini
-		c1 = c01 *(1 -T_d) +c11 *T_d
+		c1 = c01 *(1 -g_d) +c11 *g_d
 		# NP Finding bilinear interpolation between T with
 		# NP interpolated log g and high vsini
-		wav_new = np.linspace(3950, 5900, 4096)
+		wav_new = np.linspace(3850, np.max(wavl), 4096)
 		# NP Creating wavelength array to evalueate splines 
 		# NP over
-		spl_zero = CubicSpline(wavs1, c0)
-		spl_one = CubicSpline(wavs2, c1)
+		spl_zero = CubicSpline(wavs0, c0)
+		spl_one = CubicSpline(wavs1, c1)
 		# NP Creating splines of interpolated spectra at low 
 		# NP vsini and high vsini to interpolate over them. 
 		# NP These two sets of models have different 
@@ -234,9 +418,11 @@ def interpspectra(T_targ, g_targ, v_targ, plot):
 			# NP Plotting c1 interpolation
 			plt.plot(wavs1, c0, label = 'c0')
 			# NP Plotting c0 interpolation
-			plt.plot(wav_new, spline(wav_new), label ='c')
+			plt.plot(wav_new, spline(wav_new), \
+				label ='new interpolation, ' \
+				'T={0:.1f} K'.format(T_targ))
 			# NP Plotting c interpolation
-			plt.plot(wavl[sindex], data[sindex])
+			plt.plot(wavl, data, label = 'data')
 			# NP Plotting interpolated spectrum
 			plt.legend()
 			# NP Adding a legend
@@ -248,183 +434,70 @@ def interpspectra(T_targ, g_targ, v_targ, plot):
 		return wav_new, spline
 		# NP Returning wavelength array and interpolated
 		# NP spectrum
-	except TypeError:
+	except:
 		print('Could not interpolate these parameters!\n')
 		print(T_targ, g_targ, v_targ)
+		return np.nan, np.nan
 		# NP Print this string if temperature could not be
 		# NP interpolated
-	except ValueError:
-		print('Could not interpolate these parameters!')
-		print('->' +str(T_targ) +' ' +str(g_targ) +' ' +\
-			str(v_targ))
-		# NP Print this string if temperature could not be
-		# NP interpolated
+
+def noise_estimation(w, d):
+	Delt = np.array([d[i] -0.5* d[i -2] -0.5 *d[i +2] for i in \
+		range(len(w)) if (i < len(d) -2) and (i > 1)])
+	bounds = [(0, 0), (0.0001, 0.1)]
+	fit = stats.fit(stats.norm, Delt, bounds)
+	sig = fit.params[1] *(0.5 **2 +0.5 **2 +1) **-0.5
+	print('Fit parameters:\n'+str(fit.params))
+	print('Standard deviation: ' +str(np.std(Delt)))
+	print('Mean: ' +str(np.mean(Delt)))
+	return sig
+
+def residuals(w, d, err, re):
+	sig_sys = [np.sqrt(r **2 -sig **2) if np.abs(r) > sig \
+		else 0 for r in re]
+	sig_tot = np.sqrt(np.array(sig_sys) **2 +sig **2)
+	A = 0.68
+	broad_sig = A *gaussian_filter(sig_tot, 3)
+	div = np.trapz(np.abs(broad_sig), w[w > 3900]) \
+		/np.trapz(np.abs(re), w[w > 3900])
+	print(div)
+	print('Guess: ' +str(A))
+	print('Ratio: ' +str(1 /div))
+	return (1 /div) *np.sqrt(1.0) *broad_sig
 
 def log_likelihood_T(theta, x, y, yerr):
 	T, g, vsini = theta
 	# NP Defining parameters
-	try:
-		if 15000 < T < 56000 and 2 < g < 4.20 and \
-			10 < vsini < 600:
+	if 15000 < T < 56000 and 2 < g < 4.75 and \
+		10 < vsini < 600:
+		try:
 			spec = data
 			# NP Finding spectrum
 			wavs = wavl
 			# NP Finding wavelengths
-			specspline = CubicSpline(wavs, spec)
-			# NP Creating cubic spline of spectrum
-			mask1 = wavs > 4030
-			# NP Limiting blue continuum to greater than
-			# NP 4256 Angstroms
-			mask2 = wavs < 4060
-			# NP Limiting blue continuum to less than 4264
-			# NP Angstroms
-			mask3 = np.logical_and(mask1, mask2)
-			# NP Combining limitations
-			bluewavs = spec[mask3]
-			# NP Defining blue continuum
-			mask1 = wavs > 4945
-			# NP Limiting red continuum to greater than
-			# NP 4945 Angstorms
-			mask2 = wavs < 4954
-			# NP Limiting red continuum to less than 4954
-			# NP Angstroms
-			mask3 = np.logical_and(mask1, mask2)
-			# NP Combining limitations
-			redwavs = spec[mask3]
-			# NP Definining red continuum
 			wavs2, smodel = interpspectra(T, g, vsini,\
 				False)
-			# Interpolating to desired T and log g
-
-			bsigma = args.chi *np.std(bluewavs) **2
-			# NP Estimating uncertainty from standard
-			# NP deviation in blue continuum
-
-			if APO:
-				N1, chi_1 = line_evaluate(smodel, \
-					specspline, wavs, 4009, bsigma)		
-				# NP Comparing He I 4009
-				N2, chi_2 = line_evaluate(smodel, \
-					specspline, wavs, 4026, bsigma)			
-				# NP Comparing He I+II 4026
-				N3, chi_3 = line_evaluate(smodel, \
-					specspline, wavs, 4089, bsigma)			
-				# NP Comparing Si IV 4089
-				N4, chi_4 = line_evaluate(smodel, \
-					specspline, wavs, 4101, bsigma)			
-				# NP Comparing H delta 4101
-				N5, chi_5 = line_evaluate(smodel, \
-					specspline, wavs, 4121, bsigma)			
-				# NP Comparing He I 4121
-				N6, chi_6 = line_evaluate(smodel, \
-					specspline, wavs, 4144, bsigma)			
-				# NP Comparing He I 4121
-				N7, chi_7 = line_evaluate(smodel, \
-					specspline, wavs, 4200, bsigma)			
-				# NP Comparing He II 4200
-				N8, chi_8 = line_evaluate(smodel, \
-					specspline, wavs, 4340, bsigma)			
-				# NP Comparing H gamma 4340
-				N9, chi_9 = line_evaluate(smodel, \
-					specspline, wavs, 4387, bsigma)	
-				# NP Comparing He I 4387
-				N10, chi_10 = line_evaluate(smodel, \
-					specspline, wavs, 4471, bsigma)			
-				# NP Comparing He I 4471
-				N11, chi_11 = line_evaluate(smodel, \
-					specspline, wavs, 4481, bsigma)			
-				# NP Comparing Mg II 4481
-				N12, chi_12 = line_evaluate(smodel, \
-					specspline, wavs, 4541, bsigma)			
-				# NP Comparing He II 4541
-				N13, chi_13 = line_evaluate(smodel, \
-					specspline, wavs, 4552, bsigma)			
-				# NP Comparing Si IV 4552
-				N14, chi_14 = line_evaluate(smodel, \
-					specspline, wavs, 5048, bsigma)			
-				# NP Comparing He I 5048
-				N15, chi_15 = line_evaluate(smodel, \
-					specspline, wavs, 5412, bsigma)			
-				# NP Comparing He II 5412
-				chi_total = chi_1 +chi_2 +chi_3 +chi_4 \
-					+chi_5 +chi_6 +chi_7 +chi_8 \
-					+chi_9 +chi_10 +chi_11 \
-					+chi_12 +chi_13 +chi_14 \
-					+chi_15
-				# NP Summing chi squares of all lines
-				Ntot = N1 +N2 +N3 +N4 +N5 +N6 +N7 +N8 \
-					+N9 +N10 +N11 +N12 +N13 +N14 \
-					+N15 -3
-				# NP Summing 
-				logprobtot = chi2.logpdf(chi_total, Ntot)
-			else:
-				N1, chi_1 = line_evaluate(smodel, \
-					specspline, wavs, 4200, bsigma)			
-				# NP Comparing He II 4200
-				N2, chi_2 = line_evaluate(smodel, \
-					specspline, wavs, 4340, bsigma)			
-				# NP Comparing H gamma
-				N3, chi_3 = line_evaluate(smodel, \
-					specspline, wavs, 4387, bsigma)			
-				# NP Comparing He I 4387
-				N4, chi_4 = line_evaluate(smodel, \
-					specspline, wavs, 4471, bsigma)			
-				# NP Comparing He I 4471
-				N5, chi_5 = line_evaluate(smodel, \
-					specspline, wavs, 4481, bsigma)			
-				# NP Comparing Mg II 4481
-				N6, chi_6 = line_evaluate(smodel, \
-					specspline, wavs, 4541, bsigma)			
-				# NP Comparing He II 4541
-				N7, chi_7 = line_evaluate(smodel, \
-					specspline, wavs, 4552, bsigma)			
-				# NP Comparing Si III 4552
-				N8, chi_8 = line_evaluate(smodel, \
-					specspline, wavs, 4568, bsigma)			
-				# NP Comparing Si III 4568
-				N9, chi_9 = line_evaluate(smodel, \
-					specspline, wavs, 4575, bsigma)			
-				# NP Comparing Si III 4575
-				N10, chi_10 = line_evaluate(smodel, \
-					specspline, wavs, 4686, bsigma)			
-				# NP Comparing He II 4686
-				N11, chi_11 = line_evaluate(smodel, \
-					specspline, wavs, 4713, bsigma)			
-				# NP Comparing He I 4713
-				N12, chi_12 = line_evaluate(smodel, \
-					specspline, wavs, 4813, bsigma)			
-				# NP Comparing Si III 4813
-				N13, chi_13 = line_evaluate(smodel, \
-					specspline, wavs, 4820, bsigma)			
-				# NP Comparing Si III 4820
-				N14, chi_14 = line_evaluate(smodel, \
-					specspline, wavs, 4829, bsigma)			
-				# NP Comparing Si III 4829
-				N15, chi_15 = line_evaluate(smodel, \
-					specspline, wavs, 4861, bsigma)			
-				# NP Comparing H Beta
-				N16, chi_16 = line_evaluate(smodel, \
-					specspline, wavs, 4922, bsigma)			
-				# NP Comparing He I 4922
-				chi_total = chi_1 +chi_2 +chi_3 \
-					+chi_4 +chi_5 +chi_6 +chi_7 \
-					+chi_8 +chi_9 +chi_10 +chi_11\
-					+chi_12 +chi_13 +chi_14 \
-					+chi_15 +chi_16
-				# NP Summing chi squares of all lines
-				Ntot = N1 +N2 +N3 +N4 +N5 +N6 +N7 +N8 \
-					+N9 +N10 +N11 +N12 +N13 +N14 \
-					+N15 +N16 -3
-				# NP Summing number of data points
-				logprobtot = chi2.logpdf(chi_total, \
-					Ntot)
-			s = open('./' +sname+'.dat', 'a')
+			# Interpolating to desired T, log g and vsini
+			resids = spec[np.logical_and(wavs > 3900, \
+				wavs < 5000)] -smodel(\
+				wavs[np.logical_and(wavs > 3900, \
+				wavs < 5000)])
+		
+			#for i in range(len(resids)):
+			#	if wavs[wavs > 3900][i] < 5000:
+					
+			chi_sq = [(resids[i] /sig_tot[i]) **2 \
+				for i in range(len(resids))]
+			dof = len(resids) -3
+			X_sq = np.sum(chi_sq) /dof
+			logprobtot = chi2.logpdf(np.sum(chi_sq), dof)
+			s = open('/d/hya1/nikhil/BS/analysis/' +sname \
+				+'.dat', 'a')
 			# NP Opening data file
 			datastr = '{0:5.5f}\t{1:5.5f}\t{2:5.5f}\t' \
-				'{3:5.5f}\t{4:5.5f}\t{5:5.5f}\n'\
+				'{3:5.5f}\t{4:5.5f}\n'\
 				.format(T, g, vsini, logprobtot, \
-				bsigma**0.5, (chi_total) /Ntot)
-			#print(T, g, vsini, logprobtot)
+				X_sq)
 			# NP Writing out parameters of fit and
 			# NP indicators of fit to file
 			s.write(datastr)
@@ -432,37 +505,12 @@ def log_likelihood_T(theta, x, y, yerr):
 			s.close()
 			# NP Closing data file
 			return logprobtot
-		else:
-		    	print('Skipping loop')
-		    	return -np.inf
-	except:
-		return -np.inf
-		pass
-
-def line_evaluate(model, spec, w, lmbda, sigma):
-	mask1 = w < lmbda +4
-	mask2 = w > lmbda -4
-	mask3 = np.logical_and(mask1, mask2)
-	# NP Searching within 4 angstroms left and right of identified
-	# NP feature
-	wavelengths = w[mask3]
-	# NP Limiting wavelength grid to within 4 Angstroms of
-	# NP specified line
-	chi2 = np.sum((model(wavelengths) -spec(wavelengths)) \
-		**2 /sigma)
-	# NP Evaluating chi squared for the line profile
-	return len(wavelengths), chi2
-
-def spec_evaluate(model, spec, w, sigma):
-	mask1 = w < 4800
-	mask2 = w > 4000
-	mask3 = np.logical_and(mask1, mask2)
-	wavelengths = w[mask3]
-	chi2 = np.sum((model(wavelengths) -spec(wavelengths)) \
-		**2 /sigma)
-	# NP Evaluating chi squared for the entire spectrum, 4000-6000
-	# NP Angstroms
-	return len(wavelengths), chi2
+		except Exception as e:
+			print('Can\'t find probability!')
+			return -np.inf
+	else:
+	    	print('Skipping loop')
+	    	return -np.inf
 
 def log_probability_T(theta, x, y, yerr):
 	lp = log_prior(theta)
@@ -472,20 +520,27 @@ def log_probability_T(theta, x, y, yerr):
 
 def log_prior(theta):
 	T, g, vsini = theta
-	if 15000 < T < 56000 and 2 < g < 4.2 and 10 < vsini < 600:
+	if 15000 < T < 56000 and 2 < g < 4.75 and 10 < vsini < 600:
 		return 0.0
 	return -np.inf
 	# NP Rejecting parameters outside of model space
 
-def mcmc(t, g, v):
-	T_true = t
-	g_true = g
+def mcmc(t, g, v, runs = 3000):
+	if t == 15000:
+		T_true = 15100
+	else:
+		T_true = t
+	if g == 4.75:
+		g_true = 4.65
+	else:
+		g_true = g
 	vsini_true = v
-	# NP Setting best-fit temperature, log g, vsini and radial
-	# NP velocity presets.
+	# NP Setting best-fit temperature, log g, vsini starting
+	# NP point
 	nll = lambda *args: -log_likelihood_T(*args)
 	initial = np.array([T_true, g_true, vsini_true])\
 		+0.1 * np.random.randn(3)
+	testing = True
 	soln = minimize(nll, initial, args=(cints[1][0:3], \
 		cints[1][0:3], cints[1][0:3]))
 	pos = soln.x + 1e-4 * np.random.randn(32, 3)
@@ -493,201 +548,367 @@ def mcmc(t, g, v):
 	sampler = emcee.EnsembleSampler(nwalkers, ndim, \
 		log_probability_T, args=(cints[1][0:3], \
 		cints[1][0:3], cints[1][0:3]))
-	if args.chi == 1:
-		sampler.run_mcmc(pos, 1000, progress=True);
-	else:
-		sampler.run_mcmc(pos, 5000, progress=True);
+	sampler.run_mcmc(pos, runs, progress=True);
 	# NP Running MCMC fitting on spectrum
 
-	flat_samples = sampler.get_chain(discard=200, thin=15,\
+	if runs == 5000:
+		tau = sampler.get_autocorr_time()
+		print('Autocorrelation time: {0}'.format(tau))
+	flat_samples = sampler.get_chain(discard=100, thin=15,\
 		flat=True)
 	labels = ["T", "logg", "vsini"]
 	txt = ""
 	for i in range(ndim):
-		mcmc = np.percentile(flat_samples[:, i], [16, 50, 84])
+		mcmc = np.percentile(flat_samples[:, i], [\
+			15.865525, 50, 84.134475])
 		q = np.diff(mcmc)
-		txt += "{{{3}}} = {0:.5f} -{1:.5f} +{2:.5f}\n"\
+		txt += "{3} = {0:.5f} -{1:.5f} +{2:.5f}\n"\
 			.format(mcmc[1], q[0], q[1], labels[i])
 	print(txt)
-	s = open('./' +sname+'_params.dat', 'w')
+	s = open('/d/hya1/nikhil/BS/analysis/' +sname+'_params.dat', 'w')
 	s.write(txt)
 	s.close()
-	# NP Printing and saving best-fit parameters and uncertainties
+	# NP Printing and saving best-fit parameters and 
+	# NP uncertainties
+	#ds9 -geometry 800x1057 -wcs fk5 -wcs skyformat degrees  -rgb -red W4.fits -scale linear -scale limits 38 72 -green W3.fits -scale linear -scale limits 55 105 -blue W1.fits -scale linear -scale limits 0.5 12  -match frame wcs  -pan to 029.1883 0.5550 -wcs galactic -zoom 8.4  -grid load coordFK5.grd -grid yes -view panner yes  -view colorbar no &   
 
-	Tguess = np.percentile(flat_samples[:, 0], [50])
-	gguess = np.percentile(flat_samples[:, 1], [50])
-	vguess = np.percentile(flat_samples[:, 2], [50])
+	Ts = np.percentile(flat_samples[:, 0], [15.865525, 50, \
+		84.134475])
+	# NP Getting  -1, 0 and 1 sigma values for temperature
+	Tguess = Ts[1]
+	# NP Getting most-probable temperature
+	qT = np.diff(Ts)
+	# NP Calculating deviations from most-probable temperature
+	# NP for the -1 and 1 sigma levels
+	gs = np.percentile(flat_samples[:, 1], [15.865525, 50, \
+		84.134475])
+	# NP Getting -1, 0 and 1 sigma values for log g
+	gguess = gs[1]
+	# NP Getting most-probable log g
+	qg = np.diff(gs)
+	# NP Calculating deviations from most-probable log g for the
+	# NP -1 and 1 sigma levels
+	vs = np.percentile(flat_samples[:, 2], [15.865525, 50, \
+		84.134475])
+	# NP Getting -1, 0 and 1 sigma values for vsini
+	vguess = vs[1]
+	# NP Getting most-probable vsini
+	qv = np.diff(vs)
+	# NP Calculating deviations from most-probable vsini for the
+	# NP -1 and 1 sigma levels
 
-	f = plt.figure(facecolor = 'white', figsize = [24, 6])
+	f = plt.figure(facecolor = 'white', figsize = [24, 12])
+	# NP Creating figure for data spectrum and best fit model
+	# NP plot and residual spectrum
 	wmodel, model = interpspectra(Tguess, gguess, vguess, False)
-	colors = ['red', 'orange', 'green', 'blue', 'purple']
-	cindex = int(len(colors) *random.random())
+	# NP Interpolating best fit parameters
 
-	plt.plot(wavl, data, color = \
-		colors[cindex], label = sname)
-	plt.plot(wmodel, model(wmodel), '--k', label = \
-		'Best fit params')
-	plt.axvline(x=4009, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4009, 1.035, r'He I')
-	plt.axvline(x=4026, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4026, 1.035, r'He I+II')
-	plt.axvline(x=4058, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4058, 1.035, r'N IV')
-	plt.axvline(x=4069, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4071, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.hlines(y = 1.03, xmin = 4069, xmax = 4071, color = 'k'\
+	ax1 = plt.subplot(2, 1, 1)
+	# NP Creating first subplot for data spectrum and best-fit
+	# NP model spectrum
+	plt.title('Stellar spectrum with best-fit interpolated\n'
+		'model and residual spectrum', fontsize = 20)
+	# NP Setting title
+	plt.plot(wavl, data, color = 'black', label = 'Data')
+	# NP Plotting data spectrum
+	plt.plot(wavl[wavl > 3900], model(wavl[wavl > 3900]), \
+		'--', color = 'darkred', label = 'Best-fit model')
+	# NP Plotting best-fit model spectrum
+	plt.vlines(x=4009, color = 'k', linewidth = 1, ymax = 1.03, \
+		ymin = 1.01)
+	plt.text(4009, 1.038, r'He I 4009', rotation = 90, \
+		ha = 'center')
+	# NP Labeling He I 4009 line
+	plt.vlines(x=4026, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4026, 1.038, r'He I+II 4026', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4058, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4058, 1.038, r'N IV', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4068, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4069, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4070, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.hlines(y = 1.03, xmin = 4068, xmax = 4070, color = 'k'\
 		, linewidth = 1)
-	plt.text(4072, 1.035, r'C III')
-	plt.axvline(x=4089, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4089, 1.035, r'Si IV')
-	plt.axvline(x=4101, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4101, 1.035, r'H$\delta$')
-	plt.axvline(x=4116, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4116-6, 1.035, r'Si IV')
-	plt.axvline(x=4121, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4121, 1.035, r'He I')
-	plt.axvline(x=4128, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4130, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
+	plt.text(4069, 1.038, r'C III', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4070, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4072, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4076, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.hlines(y = 1.03, xmin = 4070, xmax = 4076, color = 'k'\
+		, linewidth = 1)
+	plt.text(4073, 1.038, r'O II', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4089, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4089, 1.038, r'Si IV', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4101, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4101, 1.038, r'H$\delta$', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4116, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4116, 1.038, r'Si IV', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4121, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4121, 1.038, r'He I 4121', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4128, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4130, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
 	plt.hlines(y = 1.03, xmin = 4128, xmax = 4130, color = 'k'\
 		, linewidth = 1)
-	plt.text(4129+2, 1.035, r'Si II')
-	plt.axvline(x=4144, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4144, 1.035, r'He I')
-	plt.axvline(x=4200, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4188, 1.035, r'He II')
-	plt.xlabel(r'$\AA$')
-	plt.axvline(x=4340, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4340, 1.035, r'H$\gamma$')
-	plt.axvline(x=4350, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4350, 1.035, r'O II')
-	plt.axvline(x=4379, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4375, 1.035, r'N III')
-	plt.axvline(x=4387, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4387, 1.035, r'He I')
-	plt.axvline(x=4415, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4417, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
+	plt.text(4129, 1.038, r'Si II', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4144, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4144, 1.038, r'He I 4144', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4200, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4200, 1.038, r'He II 4200', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4267, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4267, 1.038, r'C II', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4326, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4326, 1.038, r'C III', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4340, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4340, 1.038, r'H$\gamma$', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4349, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4349, 1.038, r'O II', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4379, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4379, 1.038, r'N III', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4388, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4388, 1.038, r'He I 4388', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4415, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4417, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
 	plt.hlines(y = 1.03, xmin = 4415, xmax = 4417, color = 'k'\
 		, linewidth = 1)
-	plt.text(4412, 1.035, r'O II')
-	plt.axvline(x=4420, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4440, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.hlines(y = 1.03, xmin = 4420, xmax = 4440, color = 'k'\
+	plt.text(4416, 1.038, r'O II', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4420, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4436, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.hlines(y = 1.03, xmin = 4420, xmax = 4436, color = 'k'\
 		, linewidth = 1)
-	plt.text(4422, 1.035, r'IS band')
-	plt.axvline(x=4471, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4471-10, 1.035, r'He I')
-	plt.axvline(x=4481, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4481-10, 1.035, r'Mg II')
-	plt.axvline(x=4486, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4504, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.hlines(y = 1.03, xmin = 4486, xmax = 4504, color = 'k'\
-		, linewidth = 1)
-	plt.text(4490, 1.035, r'Si IV')
-	plt.xlabel(r'$\AA$')
-	plt.axvline(x=4511, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4515, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
+	plt.text(4428, 1.038, r'DIB', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4471, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4471, 1.038, r'He I 4471', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4481, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4481, 1.038, r'Mg II 4481', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4511, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4515, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
 	plt.hlines(y = 1.03, xmin = 4511, xmax = 4515, color = 'k'\
 		, linewidth = 1)
-	plt.text(4506, 1.035, r'N III')
-	plt.axvline(x=4541, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4541-12, 1.035, r'He II')
-	plt.axvline(x=4552, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4568, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4575, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
+	plt.text(4513, 1.038, r'N III', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4541, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4541, 1.038, r'He II 4541', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4552, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4568, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4575, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
 	plt.hlines(y = 1.03, xmin = 4552, xmax = 4575, color = 'k'\
 		, linewidth = 1)
-	plt.text(4555, 1.035, r'Si III')
-	plt.axvline(x=4604, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4620, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
+	plt.text(4563.5, 1.038, r'Si III', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4604, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4620, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
 	plt.hlines(y = 1.03, xmin = 4604, xmax = 4620, color = 'k'\
 		, linewidth = 1)
-	plt.text(4602, 1.035, r'N V')
-	plt.axvline(x=4634, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4640, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4642, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
+	plt.text(4612, 1.038, r'N V', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4634, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4640, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4642, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
 	plt.hlines(y = 1.03, xmin = 4634, xmax = 4642, color = 'k'\
 		, linewidth = 1)
-	plt.text(4632, 1.035, r'N III')
-	plt.axvline(x=4640, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.axvline(x=4650, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
+	plt.text(4638, 1.038, r'N III', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4640, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4650, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
 	plt.hlines(y = 1.03, xmin = 4640, xmax = 4650, color = 'k'\
 		, linewidth = 1)
-	plt.text(4648, 1.035, r'O II')
-	plt.axvline(x=4631, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4631-14, 1.035, r'N II')
-	plt.axvline(x=4647, color= 'k', linewidth = 1, ymax = 0.60\
-		, ymin = 0.55)
-	plt.axvline(x=4652, color= 'k', linewidth = 1, ymax = 0.60\
-		, ymin = 0.55)
-	plt.hlines(y = 0.87, xmin = 4647, xmax = 4652, color = 'k'\
+	plt.text(4645, 1.038, r'O II', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4631, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4631, 1.038, r'N II', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4647, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4652, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.hlines(y = 1.03, xmin = 4647, xmax = 4652, color = 'k'\
 		, linewidth = 1)
-	plt.text(4630, 0.87, r'C III')
-	plt.axvline(x=4654, color= 'k', linewidth = 1, ymax = 0.60\
-		, ymin = 0.55)
-	plt.text(4656, 0.87, r'Si IV')
-	plt.axvline(x=4658, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4662, 1.035, r'C IV')
-	plt.axvline(x=4686, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4686, 1.035, r'He II')
-	plt.axvline(x=4713, color= 'k', linewidth = 1, ymax = 0.95\
-		, ymin = 0.90)
-	plt.text(4713, 1.035, r'He I')
+	plt.text(4649.5, 1.038, r'C III', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4654, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4654, 1.038, r'Si IV', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4658, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4658, 1.038, r'C IV', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4686, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4686, 1.038, r'He II 4686', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4713, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4713, 1.038, r'He I 4713', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4762, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4765, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.hlines(y = 1.03, xmin = 4762, xmax = 4765, color = 'k'\
+		, linewidth = 1)
+	plt.text(4763.5, 1.038, r'DIB', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4861, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4861, 1.038, r'H$\beta$', rotation = 90, \
+		ha = 'center')
+	plt.vlines(x=4880, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.vlines(x=4887, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.hlines(y = 1.03, xmin = 4880, xmax = 4887, color = 'k'\
+		, linewidth = 1)
+	plt.text(4883.5, 1.038, r'DIB', rotation = 90, \
+		ha = 'center')
+	legend_font = {'size': 15,}
+	param_bbox = dict(alpha = 0.7,
+		facecolor = 'wheat',
+		boxstyle = 'round')
+	param_string = r'$T = {0}^{{+{1}}}_{{-{2}}}$ K$'+'\n'+r'\log g '\
+		r'= {3}^{{+{4}}}_{{-{5}}}$' +'\n' +r'$v\sin{{i}} = '\
+		r'{6}^{{+{7}}}_{{-{8}}}$ km s$^{{-1}}$'.format(\
+		int(np.round(Tguess)), int(np.round(qT[1])), \
+		int(np.round(qT[0])), np.round(gguess, 2), \
+		np.round(qg[1], 2), np.round(qg[0], 2), int(\
+		np.round(vguess)), int(np.round(qv[1])), \
+		int(np.round(qv[0])))
+	plt.text(0.6, 0.15, r'$T = {0}^{{+{1}}}_{{-{2}}}$ K, $ \log g'\
+		r'= {3}^{{+{4}}}_{{-{5}}}$, $v\sin{{i}} = '\
+		r'{6}^{{+{7}}}_{{-{8}}}$ km s$^{{-1}}$'.format(\
+		int(np.round(Tguess)), int(np.round(qT[1])), \
+		int(np.round(qT[0])), np.round(gguess, 2), \
+		np.round(qg[1], 2), np.round(qg[0], 2), int(\
+		np.round(vguess)), int(np.round(qv[1])), \
+		int(np.round(qv[0]))), bbox = param_bbox, ha = \
+		'center', fontsize = 20, transform = \
+		ax1.transAxes, va = 'center')
+	plt.legend(loc = 'upper center', prop = \
+		legend_font, ncol = 2, \
+		fancybox = True, shadow = True, \
+		framealpha = 1.0)
+	minimum = np.min(data[np.logical_and(wavl > 4000, wavl < 4900)])
+	axiskwargs = dict(fontsize = 15,
+		)
+	plt.yticks(**axiskwargs)
 	plt.xlim(4000, 4900)
-	plt.ylim(0.65, 1.05)
-	plt.xlabel(r'$\AA$')
-	plt.savefig('./' +sname +'emceefittedparams.png', \
-		bbox_inches ='tight')
-	plt.show()
+	plt.ylim(minimum -0.03, 1.16)
+	plt.ylabel('Normalized spectrum', fontsize = 20)
+	plt.setp(ax1.get_xticklabels(), visible=False)
+
+	ax2 = plt.subplot(2, 1, 2, sharex = ax1)
+	resids = data[wavl > 3900] -model(wavl[wavl > 3900])
+	wrange = wavl[wavl > 3900]
+	plt.fill_between(wavl[wavl > 3900], -1 *sig_tot, sig_tot, \
+		color = 'darkorange', alpha = 0.6, label = r'1 $\sigma$')
+	plt.fill_between(wavl[wavl > 3900], -2 *sig_tot, 2 \
+		*sig_tot, color = 'darkorange', alpha = 0.4, label = \
+		r'2 $\sigma$')
+	plt.fill_between(wavl[wavl > 3900], -3 *sig_tot, 3 \
+		*sig_tot, color = 'darkorange', alpha = 0.2, label = \
+		r'3 $\sigma$')
+	plt.plot(wavl[wavl > 3900], resids, linewidth = 0.7, color = \
+		'black')
+	plt.ylabel('Residuals', fontsize = 20)
+	plt.xlabel(r'Wavelength $\lambda$ $(\AA)$', fontsize = 20)
+	plt.xlim(4000, 4900)
+	plt.ylim(-3 *np.max(sig_tot[np.logical_and(( \
+		wrange < 4900), (wrange > 4000))]) -0.02, 3.0 \
+		*np.max(sig_tot[np.logical_and((wrange < 4900), \
+		(wrange > 4000))]) +0.02)
+	plt.legend(loc = 'upper right', prop = \
+		legend_font, ncol = 1, \
+		fancybox = True, shadow = True, \
+		framealpha = 1.0)
+	plt.yticks(**axiskwargs)
+	plt.xticks([4000, 4050, 4100, 4150, 4200, 4250, 4300, \
+		4350, 4400, 4450, 4500, 4550, 4600, 4650, 4700, \
+		4750, 4800, 4850, 4900], **axiskwargs)
+	plt.tight_layout()
+	plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname \
+		+'emceefittedparams.png', bbox_inches ='tight')
 	# NP Plotting best-fit parameters
 
-	flat_samples = sampler.get_chain(discard=600, thin=15,\
+	flat_samples = sampler.get_chain(discard=100, thin = 15,\
 		flat=True)
-	fig = corner.corner(flat_samples, labels = labels)
-	fig.set_facecolor('white')
-	fig.show()
-	plt.savefig('./' +sname +'fullcorners.png')
-	plt.show()
+	CORNER_KWARGS = dict(
+		label_kwargs = dict(fontsize=16),
+		smooth = 1,
+		quantiles=[0.15865525, 0.5, 0.84134475],
+		levels=(1 - np.exp(-0.5), 1 - np.exp(-2), 1 \
+			-np.exp(-9 / 2.)),
+		plot_density=True,
+		plot_datapoints=True,
+		fill_contours=False,
+		show_titles=True,
+		max_n_ticks = 6,
+		labels = ('T', 'log g', 'vsini'),
+		range = [0.999, 0.999, 0.999],
+	)
+	fig = corner.corner(flat_samples, **CORNER_KWARGS)
+	plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname +'corners.png')
 
 if(__name__ == '__main__'):
 	parser = argparse.ArgumentParser(description = 'Program to\
@@ -697,12 +918,6 @@ if(__name__ == '__main__'):
 	parser.add_argument('spec', type = str, help = 'Directory'
 		' of the normalized reduced spectrum. Example:'
 		' /d/car1/.../BS013.fits')
-	parser.add_argument('-o', '--chi', type = float, help = \
-		'Multiplicative factor to multiply uncertainties by. '
-		'This is to reduce the minimum reduced chi^2 to 1, to '
-		'get more accurate uncertaines on parameters as well '
-		'as escape local minima. Example: 1.0000', default \
-		= 1.000)
 	# NP Adding description of arguments
 	args = parser.parse_args()
 	# NP Adding parsers
@@ -724,9 +939,8 @@ if(__name__ == '__main__'):
 	goodindex = args.spec.rfind('/')
 	# NP Guessing a name by looking for the last '/' in the input
 	# NP file name
-	sname = args.spec[goodindex+1:goodindex+6]
-	# NP Choosing a name by selecting the first five characters
-	# NP after the last '/'
+	sname = hdr['OBJNAME']
+	# NP Choosing a name by looking at the header
 	print('Name of object: ' +sname +'\n')
 	# NP Printing program's guess at the name
 	global APO 
@@ -735,31 +949,27 @@ if(__name__ == '__main__'):
 	# NP APO KOSMOS spectrum
 	print('Determining which models to use.\n')
 	global ctemps, cgs, vsini, cwavls, cints
-	ctemps, cgs, vsini, cwavls, cints = getmodels(APO)
+	btemps, bgs, bvsini, bwavls, bints = get_Bstars(APO)
+	#otemps, ogs, ovsini, owavls, oints = get_Ostars(APO)
+	#ctemps, cgs, vsini, cwavls, cints = guessmodels(btemps, \
+	#	bgs, bvsini, bwavls, bints, otemps, ogs, ovsini, \
+	#	owavls, oints, wavl, data)
+	#ctemps, cgs, vsini, cwavls, cints = otemps, ogs, ovsini, \
+	#	owavls, oints
+	ctemps, cgs, vsini, cwavls, cints = btemps, bgs, bvsini, \
+		bwavls, bints
 	# NP Defining global variables for models used throughout the
 	# NP program
 	print('Estimating best fit parameters.\n')
-	bestT, bestg, bestv = guess(wavl, data)
+	bestT, bestg, bestv, resids = guess(wavl, data)
 	# NP Getting best-fit paramaters
-	if bestT == 55000:
-		bestT = 52500
-	# NP Cathcing case where best-fit temperature is at the upper
-	# NP limit of the models, and lowering it so walkers don't walk
-	# NP outside of parameter space
-	if bestg == 4.75:
-		bestg == 4.50
-	# NP Cathcing case where best-fit gravity is at the upper
-	# NP limit of the models, and lowering it so walkers don't walk
-	# NP outside of parameter space
-	if bestT == 15000:
-		bestT = 16000
-	# NP Cathcing case where best-fit temperature is at the lower
-	# NP limit of the models, and raising it so walkers don't walk
-	# NP outside of parameter space
-	if bestv == 10:
-		bestv = 50
+	sig = noise_estimation(wavl, data)
+	print('Statistical sigma estimation: ' +str(sig))
+	global sig_tot
+	sig_tot = residuals(wavl, data, sig, resids)
+	print('Total sigma estimation: ' +str(sig_tot))
 	if(~np.isnan(bestT +bestg +bestv)):
-		s = open('./' +sname+'.dat', 'w')
+		s = open('/d/hya1/nikhil/BS/analysis/' +sname+'.dat', 'w')
 		# NP Creating data file
 		s.write(str(sname) +" params:\n")
 		# NP Writing initial paramter guesses to file
@@ -767,41 +977,19 @@ if(__name__ == '__main__'):
 		# NP Closing file
 		mcmc(bestT, bestg, bestv)
 		# NP Running MCMC on the desired spectrum
-		chis = np.loadtxt('./'+sname +'.dat', usecols = [5], \
-			skiprows =1)
+		chis = np.loadtxt('/d/hya1/nikhil/BS/analysis/'+sname \
+			+'.dat', usecols = [4], skiprows =1)
 		# NP Reading in chis from data file
-		bestchi = chis[np.argmin(chis)]
+		bestchi = chis[np.argmin(np.abs(chis))]
 		# NP Reading best reduced chi-squared
 		print('best chi2: ' +str(bestchi) +'\n')
-		sigguess = bestchi *args.chi
-		print('Guess at uncertainty factor: ' +str(sigguess) \
-			+'\n')
-		# NP Using best chi squared to guess at factor needed
-		# NP to multiply uncertainty by to get a reduced chi
-		# NP squared of one
+		sig_tot = np.sqrt(np.round(bestchi, 3)) *sig_tot
+		mcmc(bestT, bestg, bestv, 5000)
+		newchis = np.loadtxt('/d/hya1/nikhil/BS/analysis/' +sname \
+			+'.dat', usecols = [4], skiprows = 1)
+		newbestchi = newchis[np.argmin(np.abs(newchis))]
+		print('new best chi2: ' +str(newbestchi) +'\n')
 		print('Done!\n')
 
-
-# NP Version 1.03
-# NP
-# NP Changelog:
-# NP
-# NP Version 1.03:
-# NP Now prints the log probability of each trial 
-# NP
-# NP 10 July 2023
-# NP
-# NP Version 1.02:
-# NP Added a catch to prevent bestv from being too low
-# NP
-# NP Version 1.01:
-# NP Added a catch to interpolate between O and B star grid
-# NP
-# NP Version 1.0:
-# NP Along with being a really awesome and great program for analyzing
-# NP stellar spectra, this code can now catch instances where walkers
-# NP walk outside of parameter space.
-# NP
-# NP 6 July 2023
 
 

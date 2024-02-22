@@ -55,13 +55,12 @@ def Gmags(wiro):
 	mags = np.array([i[2: 7] for i in gmags])
 	return mags
 
-def limitobjs(first, wiro, glim):
+def limitobjs(wiro):
 	'''Limits a list of objects based on inputted parameters.
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	Inputs
 	-first: Boolean. Boolean indicating if observation is first half.
 	-wiro: ndarray. A table containing objects in WIRO format.
-	-glim: int. The lower g-magnitude to filter by.
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	Outputs
 	-ii: ndarray. A boolean array corresponding to which objects
@@ -70,22 +69,11 @@ def limitobjs(first, wiro, glim):
 	# NP Finding the Sun's RA
 	midnight = np.mod(12 +sunra, 24)
 	# NP RA of meridian at midnight
-	rarange = 8
+	rarange = 6
 	# NP RA range to search
-	if(first):
-		print('First half')
-		raupper = midnight+1
-		# NP Defining upper RA bound
-		ralower = midnight -rarange
-		# NP Defining lower RA bound
-	else:
-		print('Second half')
-		raupper = midnight +rarange
-		# NP Defining upper RA bound
-		ralower = midnight+1
-		# NP Defining lower RA bound
-	# NP Setting RA bounds based on whether observation is first
-	# NP or second half
+	ralower = midnight -rarange
+	raupper = midnight +rarange
+	# NP Setting RA bounds to within 8 hours of midnight
 	print("Sun: " +str(np.round(sunra, 3)) +" hours")
 	print("Midnight: " +str(np.round(midnight, 3)) +" hours")
 	print("RA upper: " +str(np.round(raupper, 3)) +" hours")
@@ -122,8 +110,8 @@ def limitobjs(first, wiro, glim):
 		print('Searching between < ' +str(np.round(a,3)) \
 			+" hours and > " +str(np.round(b,3)) \
 			+' hours.')
-		ii = (G > glim) & (~isrepeat) & (decs > -45)\
-			& ((ras <= a) | (ras >= b))
+		ii = (decs > -45)\
+			& ((ras <= a) | (ras >= b)) & (~isrepeat)
 		# NP Limiting selection
 	# NP Making sense of upper RA bound greater than 24 hours
 	elif ralower < 0:
@@ -133,15 +121,15 @@ def limitobjs(first, wiro, glim):
 		print('Searching between < ' +str(np.round(a,3)) \
 			+" hours and > " +str(np.round(b,3)) \
 			+' hours.')
-		ii = (G > glim) & (~isrepeat) & (decs > -45)\
-			& ((ras >= b) | (ras <= a))
+		ii = (decs > -45)\
+			& ((ras >= b) | (ras <= a)) & (~isrepeat)
 		# NP Limiting selection
 	# NP Making sense of lower RA bound lower than 0 hours
 	else:
 		print('Searching between < ' +str(np.round(raupper,3)) \
 			+" hours and > " +str(np.round(ralower,3)) \
 			+' hours.')
-		ii = (G > glim) & (decs > -45) & (ras <= raupper)\
+		ii = (decs > -45) & (ras <= raupper)\
 			& (ras >= ralower) & (~isrepeat)
 		# NP Limiting selection
 	# NP Default case
@@ -177,15 +165,6 @@ if(__name__ == '__main__'):
 	parser.add_argument('name', type = str, help = \
 		'Path of generated file. Example: /d/users/nikhil/name')
 	# NP Defining parser name argument
-	parser.add_argument('gmag', type = float, help = \
-		'G Magnitude ceiling. Selection will exclude objects'
-		' brighter than this constraint. Example: 12')
-	# NP Setting g magnitude limit
-	parser.add_argument('first', default=True, type = boolean_string\
-		, help = 'Boolean representing whehter obervation is in\
-		 the first half of the night. Example: True')
-	# NP Defining parser argument for whether observation is in the
-	# NP beginning of the night.
 	args = parser.parse_args()
 	# NP Adding parser to run at command line
 	wiro = np.loadtxt('/d/users/nikhil/Bowshocks/obslist/'\
@@ -203,12 +182,10 @@ if(__name__ == '__main__'):
 		' RotType=Horizon; RotAng=90' 
 		+'\n# G = ' +gs[i] for i in range(len(n))]
 	# NP Generating array of objects in APO format
-	index = limitobjs(args.first, wiro, args.gmag)
+	index = limitobjs(wiro)
 	# NP Limiting selection
 	dimmerAPO = np.array(APO)[index]
-	np.savetxt(args.name +'.txt', APO, fmt = '%s')
-	# NP Saving all targets
-	np.savetxt(args.name +'_cut.txt', dimmerAPO, fmt = '%s')
+	np.savetxt(args.name +'APOtargets.txt', dimmerAPO, fmt = '%s')
 	# NP Saving limited targets
 	print("Done.")
 	# NP Printing message when conversion is complete
