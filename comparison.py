@@ -57,7 +57,7 @@ def scatter_t(mts, mt_upper, mt_lower, lts, olt):
 	plt.xlabel(r'Literature $T$ ($K$)')
 	plt.ylabel(r'Measured $T$ ($K$)')
 	plt.title(r'Comparison of $T$')
-	plt.savefig('./temp_comparison.eps')
+	plt.savefig('./calibrators/temp_comparison.eps')
 	
 def scatter_g(mgs, mg_upper, mg_lower, lgs, ogt):
 	plt.figure(figsize = [8, 6], facecolor = 'white')
@@ -74,7 +74,7 @@ def scatter_g(mgs, mg_upper, mg_lower, lgs, ogt):
 	plt.xlabel(r'Literature $\log g$')
 	plt.ylabel(r'Measured $\log g$')
 	plt.title(r'Comparison of $\log g$')
-	plt.savefig('./g_comparison.eps')
+	plt.savefig('./calibrators/g_comparison.eps')
 	
 def scatter_v(mvs, mv_upper, mv_lower, lvs, olv):
 	plt.figure(figsize = [8, 6], facecolor = 'white')
@@ -91,7 +91,7 @@ def scatter_v(mvs, mv_upper, mv_lower, lvs, olv):
 	plt.xlabel(r'Literature $v\sin i$')
 	plt.ylabel(r'Measured $v\sin i$')
 	plt.title(r'Comparison of $v\sin i$')
-	plt.savefig('./v_comparison.eps')
+	plt.savefig('./calibrators/v_comparison.eps')
 
 if (__name__ == '__main__'):
 	d = './Comparisons.csv'
