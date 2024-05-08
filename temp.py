@@ -22,11 +22,15 @@ def get_POWR(APO):
 	variables
 	---------------------------------------------
 	Inputs
-	-APO: boolean. Boolean indicating whether spectrum was obtained
-	on APO KOSMOS spectrograph. Example: True
+	-APO: boolean. Boolean indicating whether spectrum was
+	obtained on APO KOSMOS spectrograph. Example: True
 	---------------------------------------------
 	Outputs
-	-None.
+	-ctemps: array. Array of temperatures from library of models.
+	-cgs: array. Array of gravities from library of models.
+	-vsini: array. Array of vsini from library of models.
+	-cwavls: array. Array of wavelength information from models.
+	-cins: array. Array of normalized flux values from models.
 	'''
 	if APO:
 		print('Reading in APO model spectra.\n')
@@ -261,7 +265,7 @@ def guess(wav, dat):
 	# NP Creating a spline of all model spectra
 	diffs = np.array([np.array([((dat[ii] \
 		-modelsplines[i](wav[ii]))) for ii in \
-		range(len(wav)) if wav[ii] > 3900]) for i in \
+		range(len(wav)) if wav[ii] > 3900 and wav[ii] < 5100]) for i in \
 		range(len(modelsplines))])
 	# NP Evaluating deviation of data from each model spectrum
 	smin = np.argmin([np.sum(r **2) for r in diffs])
@@ -270,10 +274,13 @@ def guess(wav, dat):
 	print('log g: ' +str(cgs[smin]))
 	print('v sini: ' +str(vsini[smin]) +'\n')
 	# NP Printing best-fit paramteres
+	dmin = np.array([dat[i] -modelsplines[smin](wav[i]) for i \
+		in range(len(wav))])
+	print('dmin: ' +str(dmin))
 	t_test = ctemps[smin]
 	g_test = cgs[smin]
 	v_test = vsini[smin]
-	return t_test, g_test, v_test, diffs[smin]
+	return t_test, g_test, v_test, dmin
 	# NP Returning best-fit parameters
 
 def interpspectra(T_targ, g_targ, v_targ, plot):
@@ -441,7 +448,19 @@ def interpspectra(T_targ, g_targ, v_targ, plot):
 		# NP Print this string if temperature could not be
 		# NP interpolated
 
-def noise_estimation(w, d):
+def noise_estimation(w, d, plot):
+	'''Function used to determine the statistical noise component
+	of a given spectrum. This quantifies the random deviation two
+	pixel are likely to differ by and is a measure of S/N.
+	---------------------------------------------
+	Inputs
+	-w: array. Wavelength array from stellar spectrum
+	-d: array. Array of normalized flux values
+	-plot: Boolean. Whether to plot the interpolated spectrum.
+	---------------------------------------------
+	Outputs
+	-sig: float. Statistical noise estimation
+	'''
 	Delt = np.array([d[i] -0.5* d[i -2] -0.5 *d[i +2] for i in \
 		range(len(w)) if (i < len(d) -2) and (i > 1)])
 	bounds = [(0, 0), (0.0001, 0.1)]
@@ -450,22 +469,135 @@ def noise_estimation(w, d):
 	print('Fit parameters:\n'+str(fit.params))
 	print('Standard deviation: ' +str(np.std(Delt)))
 	print('Mean: ' +str(np.mean(Delt)))
+	color1 = '#59C3C3'
+	if plot:
+		plt.figure(figsize = [8, 6], facecolor = 'white')
+		ax1 = plt.axes()
+		print(np.max(np.abs(Delt)))
+		print(fit.params[1], fit.params[0])
+		x_range = np.linspace(-7 *fit.params[1], 7 \
+			*fit.params[1], 1000)
+		plt.hist(Delt, density =True, color = color1, \
+			edgecolor = 'black', alpha = 0.7, bins = \
+			np.arange(-7 *fit.params[1], 7 \
+			*fit.params[1], fit.params[1]), label = \
+			'Histrogram')
+		plt.plot(x_range, (1 /(fit.params[1] *np.sqrt(2 \
+			*np.pi)) *np.exp(-0.5 *(x_range \
+			-fit.params[0]) **2 /(fit.params[1]) **2)), \
+			'--', color = 'black', label = 'Fitted'\
+			' Normal\nDistribution')
+		plt.xlim(x_range[0], x_range[999])
+		plt.ylabel('PDF')
+		plt.xlabel(r'$\Delta$')
+		plt.title(sname +' noise distribution')
+		param_bbox = dict(alpha = 0.7,
+			facecolor = 'wheat',
+			boxstyle = 'round')
+		plt.text(0.88, 0.75, 'Fit-parameters\n'r'$\mu$: {0}'\
+			'\n$\sigma$: {1}'.format(fit.params[0], \
+			np.round(fit.params[1], 5)), bbox = \
+			param_bbox, ha = 'center', fontsize = 12, \
+			transform = ax1.transAxes, va = 'center')
+		plt.legend()
+		plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname \
+			+'stat_noise.pdf')
 	return sig
 
-def residuals(w, d, err, re):
+def residuals(w, d, sig, re, plot):
+	'''
+	---------------------------------------------
+	Inputs
+	-w: array. Wavelength array from stellar spectrum.
+	-d: array. Array of normalized flux values.
+	-sig: float. The statistical error estimated in the
+	noise_estimation function.
+	-re: array. Residual array from best-fit model spectum.
+	-plot: Boolean. Whether to plot the interpolated spectrum.
+	---------------------------------------------
+	Outputs
+	-broad_sig: array. Estimation of the entire uncertainty
+	array.
+	'''
 	sig_sys = [np.sqrt(r **2 -sig **2) if np.abs(r) > sig \
 		else 0 for r in re]
+	# NP Estimating unsmoothed systematic error
+	smoothed_sig_sys = gaussian_filter(sig_sys, 3)
+	# NP Smoothing systematic error
 	sig_tot = np.sqrt(np.array(sig_sys) **2 +sig **2)
+	# NP Adding statistical and systematic error in quadrature
+	# NP to get the total error
 	A = 0.68
+	# NP Defining a constant
 	broad_sig = A *gaussian_filter(sig_tot, 3)
-	div = np.trapz(np.abs(broad_sig), w[w > 3900]) \
-		/np.trapz(np.abs(re), w[w > 3900])
-	print(div)
-	print('Guess: ' +str(A))
-	print('Ratio: ' +str(1 /div))
-	return (1 /div) *np.sqrt(1.0) *broad_sig
+	# NP Reducting error array by appromate factor to encapsulate
+	# NP one sigma
+	if plot:
+		color2 = '#52489C'
+		# NP Defining pretty color
+		axiskwargs = dict(fontsize = 15,
+		)
+		# NP Defining axis keywork agruments
+		plt.figure(figsize = [24, 6], facecolor = 'white')
+		# NP Making new figure
+		plt.plot(w, smoothed_sig_sys, color = 'black')
+		plt.fill_between(w, 0, smoothed_sig_sys, color = \
+			color2)
+		plt.xlim(4000, 5000)
+		max_value = np.max(smoothed_sig_sys[\
+			np.logical_and(w > 4000, w < 5000)])
+		plt.ylim(0, max_value *1.05)
+		plt.ylabel(r'Systematic uncertainty', **axiskwargs)
+		plt.xlabel(r'Wavelength $\lambda$ ($\AA$)', \
+			**axiskwargs)
+		plt.yticks(**axiskwargs)
+		plt.xticks([4000, 4050, 4100, 4150, 4200, 4250, \
+			4300, 4350, 4400, 4450, 4500, 4550, 4600, \
+			4650, 4700, 4750, 4800, 4850, 4900, 4950, \
+			5000], **axiskwargs)
+		plt.title(sname +' systematic uncertainty '\
+			'spectrum', **axiskwargs)
+		plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname \
+			+'sys_unc.pdf')
+		plt.clf()
+		color3 = '#DB5461'
+		plt.figure(figsize = [24, 6], facecolor = 'white')
+		ax1 = plt.axes()
+		plt.plot(w, broad_sig, color = 'black')
+		#plt.plot(w, -1 *broad_sig, color = 'black')
+		plt.fill_between(w, -0 *broad_sig, broad_sig, \
+			color = color3)
+		err_max = np.max(broad_sig[np.logical_and(w < \
+			5000, w > 4000)])
+		plt.ylim(0, 1.05 *err_max)
+		plt.xlim(4000, 5000)
+		plt.title(sname +' uncertainty spectrum', \
+			**axiskwargs)
+		plt.ylabel(r'Predicted uncertainty', **axiskwargs)
+		plt.xlabel(r'Wavelength $\lambda$ ($\AA$)', \
+			**axiskwargs)
+		plt.yticks(**axiskwargs)
+		plt.xticks([4000, 4050, 4100, 4150, 4200, 4250, \
+			4300, 4350, 4400, 4450, 4500, 4550, 4600, \
+			4650, 4700, 4750, 4800, 4850, 4900, 4950, \
+			5000], **axiskwargs)
+		plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname \
+			+'unc_spec.pdf')
+	return broad_sig
 
 def log_likelihood_T(theta, x, y, yerr):
+	'''
+	---------------------------------------------
+	Inputs
+	-T_targ: float. 
+	Kelvin
+	-g_targ: float. 
+	-plot: Boolean. Whether to plot the interpolated spectrum.
+	---------------------------------------------
+	Outputs
+	-wav_new: array. Wavelength array in Angstroms.
+	-spline(wav_new): float. Spline of interpolated spectrum.
+	'''
 	T, g, vsini = theta
 	# NP Defining parameters
 	if 15000 < T < 56000 and 2 < g < 4.75 and \
@@ -478,19 +610,24 @@ def log_likelihood_T(theta, x, y, yerr):
 			wavs2, smodel = interpspectra(T, g, vsini,\
 				False)
 			# Interpolating to desired T, log g and vsini
-			resids = spec[np.logical_and(wavs > 3900, \
-				wavs < 5000)] -smodel(\
-				wavs[np.logical_and(wavs > 3900, \
-				wavs < 5000)])
-		
-			#for i in range(len(resids)):
-			#	if wavs[wavs > 3900][i] < 5000:
-					
-			chi_sq = [(resids[i] /sig_tot[i]) **2 \
-				for i in range(len(resids))]
-			dof = len(resids) -3
-			X_sq = np.sum(chi_sq) /dof
-			logprobtot = chi2.logpdf(np.sum(chi_sq), dof)
+			#resids = spec[np.logical_and(wavs > 3900, \
+			#	wavs < 5000)] -smodel(\
+			#	wavs[np.logical_and(wavs > 3900, \
+			#	wavs < 5000)])	
+			resids = spec -smodel(wavs)
+			chi_sq = np.array([(resids[i] /sig_tot[i]) \
+				**2 for i in range(len(resids))])
+			if (APO):
+				X = np.where(np.logical_and(wavs > \
+					4000, wavs < 5000), \
+					chi_sq, 0)
+			else:
+				X = np.where(np.logical_and(wavs > \
+					4200, wavs < 5000), \
+					chi_sq, 0)
+			dof = len(X[X != 0]) -3
+			X_sq = np.sum(X) /dof
+			logprobtot = chi2.logpdf(np.sum(X), dof)
 			s = open('/d/hya1/nikhil/BS/analysis/' +sname \
 				+'.dat', 'a')
 			# NP Opening data file
@@ -507,18 +644,43 @@ def log_likelihood_T(theta, x, y, yerr):
 			return logprobtot
 		except Exception as e:
 			print('Can\'t find probability!')
+			print(e)
 			return -np.inf
 	else:
 	    	print('Skipping loop')
 	    	return -np.inf
 
 def log_probability_T(theta, x, y, yerr):
+	'''
+	---------------------------------------------
+	Inputs
+	-T_targ: float. 
+	Kelvin
+	-g_targ: float. 
+	-plot: Boolean. Whether to plot the interpolated spectrum.
+	---------------------------------------------
+	Outputs
+	-wav_new: array. Wavelength array in Angstroms.
+	-spline(wav_new): float. Spline of interpolated spectrum.
+	'''
 	lp = log_prior(theta)
 	if not np.isfinite(lp):
 		return -np.inf
 	return lp + log_likelihood_T(theta, x, y, yerr)
 
 def log_prior(theta):
+	'''
+	---------------------------------------------
+	Inputs
+	-T_targ: float. 
+	Kelvin
+	-g_targ: float. 
+	-plot: Boolean. Whether to plot the interpolated spectrum.
+	---------------------------------------------
+	Outputs
+	-wav_new: array. Wavelength array in Angstroms.
+	-spline(wav_new): float. Spline of interpolated spectrum.
+	'''
 	T, g, vsini = theta
 	if 15000 < T < 56000 and 2 < g < 4.75 and 10 < vsini < 600:
 		return 0.0
@@ -526,15 +688,32 @@ def log_prior(theta):
 	# NP Rejecting parameters outside of model space
 
 def mcmc(t, g, v, runs = 3000):
+	'''
+	---------------------------------------------
+	Inputs
+	-T_targ: float. 
+	Kelvin
+	-g_targ: float. 
+	-plot: Boolean. Whether to plot the interpolated spectrum.
+	---------------------------------------------
+	Outputs
+	-wav_new: array. Wavelength array in Angstroms.
+	-spline(wav_new): float. Spline of interpolated spectrum.
+	'''
 	if t == 15000:
 		T_true = 15100
+	elif t == 30000:
+		T_true = 29900 
 	else:
 		T_true = t
 	if g == 4.75:
 		g_true = 4.65
 	else:
 		g_true = g
-	vsini_true = v
+	if v == 10:
+		vsini_true = 15
+	else:
+		vsini_true = v
 	# NP Setting best-fit temperature, log g, vsini starting
 	# NP point
 	nll = lambda *args: -log_likelihood_T(*args)
@@ -611,7 +790,7 @@ def mcmc(t, g, v, runs = 3000):
 	# NP Setting title
 	plt.plot(wavl, data, color = 'black', label = 'Data')
 	# NP Plotting data spectrum
-	plt.plot(wavl[wavl > 3900], model(wavl[wavl > 3900]), \
+	plt.plot(wavl[wavl > 3800], model(wavl[wavl > 3800]), \
 		'--', color = 'darkred', label = 'Best-fit model')
 	# NP Plotting best-fit model spectrum
 	plt.vlines(x=4009, color = 'k', linewidth = 1, ymax = 1.03, \
@@ -823,6 +1002,10 @@ def mcmc(t, g, v, runs = 3000):
 		, linewidth = 1)
 	plt.text(4883.5, 1.038, r'DIB', rotation = 90, \
 		ha = 'center')
+	plt.vlines(x=4922, color= 'k', linewidth = 1, ymax = 1.03\
+		, ymin = 1.01)
+	plt.text(4922, 1.038, r'He I 5922', rotation = 90, \
+		ha = 'center')
 	legend_font = {'size': 15,}
 	param_bbox = dict(alpha = 0.7,
 		facecolor = 'wheat',
@@ -849,35 +1032,34 @@ def mcmc(t, g, v, runs = 3000):
 		legend_font, ncol = 2, \
 		fancybox = True, shadow = True, \
 		framealpha = 1.0)
-	minimum = np.min(data[np.logical_and(wavl > 4000, wavl < 4900)])
+	minimum = np.min(data[np.logical_and(wavl > 4000, wavl < 5000)])
 	axiskwargs = dict(fontsize = 15,
 		)
 	plt.yticks(**axiskwargs)
-	plt.xlim(4000, 4900)
+	plt.xlim(4000, 5000)
 	plt.ylim(minimum -0.03, 1.16)
 	plt.ylabel('Normalized spectrum', fontsize = 20)
 	plt.setp(ax1.get_xticklabels(), visible=False)
 
 	ax2 = plt.subplot(2, 1, 2, sharex = ax1)
-	resids = data[wavl > 3900] -model(wavl[wavl > 3900])
-	wrange = wavl[wavl > 3900]
-	plt.fill_between(wavl[wavl > 3900], -1 *sig_tot, sig_tot, \
+	resids = data -model(wavl)
+	plt.fill_between(wavl, -1 *sig_tot, sig_tot, \
 		color = 'darkorange', alpha = 0.6, label = r'1 $\sigma$')
-	plt.fill_between(wavl[wavl > 3900], -2 *sig_tot, 2 \
+	plt.fill_between(wavl, -2 *sig_tot, 2 \
 		*sig_tot, color = 'darkorange', alpha = 0.4, label = \
 		r'2 $\sigma$')
-	plt.fill_between(wavl[wavl > 3900], -3 *sig_tot, 3 \
+	plt.fill_between(wavl, -3 *sig_tot, 3 \
 		*sig_tot, color = 'darkorange', alpha = 0.2, label = \
 		r'3 $\sigma$')
-	plt.plot(wavl[wavl > 3900], resids, linewidth = 0.7, color = \
+	plt.plot(wavl, resids, linewidth = 0.7, color = \
 		'black')
 	plt.ylabel('Residuals', fontsize = 20)
 	plt.xlabel(r'Wavelength $\lambda$ $(\AA)$', fontsize = 20)
-	plt.xlim(4000, 4900)
-	plt.ylim(-3 *np.max(sig_tot[np.logical_and(( \
-		wrange < 4900), (wrange > 4000))]) -0.02, 3.0 \
-		*np.max(sig_tot[np.logical_and((wrange < 4900), \
-		(wrange > 4000))]) +0.02)
+	plt.xlim(4000, 5000)
+	max_err = np.max(sig_tot[np.where(np.logical_and(wavl > \
+		4000, wavl < 5000))])
+	print('max. error: ' +str(max_err))
+	plt.ylim(-3 *max_err -0.02, 3.0 *max_err +0.02)
 	plt.legend(loc = 'upper right', prop = \
 		legend_font, ncol = 1, \
 		fancybox = True, shadow = True, \
@@ -885,10 +1067,12 @@ def mcmc(t, g, v, runs = 3000):
 	plt.yticks(**axiskwargs)
 	plt.xticks([4000, 4050, 4100, 4150, 4200, 4250, 4300, \
 		4350, 4400, 4450, 4500, 4550, 4600, 4650, 4700, \
-		4750, 4800, 4850, 4900], **axiskwargs)
+		4750, 4800, 4850, 4900, 4950, 5000], **axiskwargs)
 	plt.tight_layout()
 	plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname \
 		+'emceefittedparams.png', bbox_inches ='tight')
+	plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname \
+		+'emceefittedparams.pdf', bbox_inches ='tight')
 	# NP Plotting best-fit parameters
 
 	flat_samples = sampler.get_chain(discard=100, thin = 15,\
@@ -909,6 +1093,20 @@ def mcmc(t, g, v, runs = 3000):
 	)
 	fig = corner.corner(flat_samples, **CORNER_KWARGS)
 	plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname +'corners.png')
+	plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname +'corners.pdf')
+	
+def plot_grid(t, g, n):
+	plt.figure(figsize = [8, 6], facecolor = 'white')
+	plt.plot(t/1000, g, 'ok')
+	plt.title(n +' parameters')
+	plt.xlabel(r'Temperature ($kK$)')
+	plt.ylabel(r'$\log g$ (cgs)')
+	plt.yticks(np.arange(np.min(g), np.max(g) +0.2, 0.2))
+	t_range = np.arange(np.floor(np.min(t /1000)), np.max(t \
+		/1000) +1, 1)
+	tlabels = [str(t) if t % 5 == 0 else "" for t in t_range]
+	plt.xticks(t_range, tlabels)
+	plt.savefig('/d/hya1/nikhil/BS/model_spectra' +n +'.pdf')
 
 if(__name__ == '__main__'):
 	parser = argparse.ArgumentParser(description = 'Program to\
@@ -949,27 +1147,34 @@ if(__name__ == '__main__'):
 	# NP APO KOSMOS spectrum
 	print('Determining which models to use.\n')
 	global ctemps, cgs, vsini, cwavls, cints
-	btemps, bgs, bvsini, bwavls, bints = get_Bstars(APO)
-	#otemps, ogs, ovsini, owavls, oints = get_Ostars(APO)
+	#btemps, bgs, bvsini, bwavls, bints = get_Bstars(APO)
+	otemps, ogs, ovsini, owavls, oints = get_Ostars(APO)
+	#ptemps, pgs, pvsini, pwavls, pints = get_POWR(APO)
+	#plot_grid(btemps, bgs, 'BSTAR2006')
+	#plot_grid(otemps, ogs, 'OSTAR2002')
+	#plot_grid(ptemps, pgs, 'POWR')
 	#ctemps, cgs, vsini, cwavls, cints = guessmodels(btemps, \
-	#	bgs, bvsini, bwavls, bints, otemps, ogs, ovsini, \
-	#	owavls, oints, wavl, data)
-	#ctemps, cgs, vsini, cwavls, cints = otemps, ogs, ovsini, \
-	#	owavls, oints
-	ctemps, cgs, vsini, cwavls, cints = btemps, bgs, bvsini, \
-		bwavls, bints
+#		bgs, bvsini, bwavls, bints, otemps, ogs, ovsini, \
+#		owavls, oints, wavl, data)
+	ctemps, cgs, vsini, cwavls, cints = otemps, ogs, ovsini, \
+		owavls, oints
+	#ctemps, cgs, vsini, cwavls, cints = btemps, bgs, bvsini, \
+	#	bwavls, bints
+	#ctemps, cgs, vsini, cwavls, cints = ptemps, pgs, pvsini, \
+	#	pwavls, pints
 	# NP Defining global variables for models used throughout the
 	# NP program
 	print('Estimating best fit parameters.\n')
 	bestT, bestg, bestv, resids = guess(wavl, data)
 	# NP Getting best-fit paramaters
-	sig = noise_estimation(wavl, data)
+	sig = noise_estimation(wavl, data, True)
 	print('Statistical sigma estimation: ' +str(sig))
 	global sig_tot
-	sig_tot = residuals(wavl, data, sig, resids)
+	sig_tot = residuals(wavl, data, sig, resids, True)
 	print('Total sigma estimation: ' +str(sig_tot))
 	if(~np.isnan(bestT +bestg +bestv)):
-		s = open('/d/hya1/nikhil/BS/analysis/' +sname+'.dat', 'w')
+		s = open('/d/hya1/nikhil/BS/analysis/' +sname \
+			+'.dat', 'w')
 		# NP Creating data file
 		s.write(str(sname) +" params:\n")
 		# NP Writing initial paramter guesses to file
@@ -984,7 +1189,7 @@ if(__name__ == '__main__'):
 		# NP Reading best reduced chi-squared
 		print('best chi2: ' +str(bestchi) +'\n')
 		sig_tot = np.sqrt(np.round(bestchi, 3)) *sig_tot
-		mcmc(bestT, bestg, bestv, 5000)
+		mcmc(bestT, bestg, bestv, 6000)
 		newchis = np.loadtxt('/d/hya1/nikhil/BS/analysis/' +sname \
 			+'.dat', usecols = [4], skiprows = 1)
 		newbestchi = newchis[np.argmin(np.abs(newchis))]

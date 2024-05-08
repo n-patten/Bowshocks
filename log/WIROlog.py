@@ -31,29 +31,26 @@ def findfitsfiles(directory):
 	# NP Printing how many fits files were found
 	return fitsfiles
 
-def generatelogtxt(fitsopen):
+def generatelogtxt(fitsfiles):
 	'''Generates text for a log file
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	Inputs
-	-fitsopen: Astropy fitsopen. Opening fits files
+	-fitsfiles: np.array. List of fits files in directory
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	Outputs
 	-log: String. A string for a log file.'''
+	fitsopen = [fits.open(args.path +str(i)) for i in fitsfiles]
+	# NP Opening fits files
+	identifier = np.array([a[1:4] for a in fitsfiles], dtype = int)
+	# NP Interpreting file number from list of fits files
+	polishedindices = np.argsort(identifier)
+	# NP Sorting file number from least to greatest
 	dates = np.array([i[0].header['DATE-OBS'] for i in fitsopen])
 	# NP Reading in dates from fits headers
-	sorteddates = sorted(dates)
-	# NP Sorting dates
-	indices = np.array([np.where(dates == i) for i in sorteddates])
-	# NP Matching indices of sorteddates to regular dates
-	polishedindices = [i.item() for i in indices]
-	# NP Creating array of indices ordering fits files in order
 	sorteddates = np.array(dates[polishedindices])
 	# NP Redefining sorteddates from polishedindices
 	sortednames = np.array(fitsfiles[polishedindices])
 	# NP Creating a list of file names in order
-	#sortedobjs = np.array([i[0].header['IMAGETYP'] for i in \
-	#	fitsopen])[polishedindices]
-	# NP Creating a list of objs in order
 	sortedobjnames = np.array([i[0].header['OBJNAME'] for i in \
 		fitsopen])[polishedindices]
 	# NP Creating a lit of object names in order
@@ -64,14 +61,6 @@ def generatelogtxt(fitsopen):
 	sortedexp = np.array([i[0].header['EXPTIME'] for i in fitsopen])\
 		[polishedindices]
 	# NP Creating a list of exptimes in order
-	#ii = np.array([(i == 'Flat') | (i == 'Bias') | (i == 'Comp')\
-	#	for i in sortedobjs])
-	# NP Creating indices of non object type exposures
-	#sortedobjnames[ii] = np.array(["" for i in sortedobjnames[ii]])
-	# NP Setting name to be blank if obj is not a star
-	#sortedslits = np.array([i[0].header['SLIT'] for i in \
-	#	fitsopen])[polishedindices]
-	# NP Creating a lit of filters in order
 	sortedtimes = np.array([i[11:16] for i in sorteddates])
 	# NP Creating a list of TAI times in order
 	sortedairmass = np.array([i[0].header['AIRMASS'] for i in \
@@ -106,9 +95,7 @@ if (__name__ == '__main__'):
 	# NP Adding parser to run at command line
 	fitsfiles = findfitsfiles(args.path)
 	# NP Finding fits files
-	fitsopen = [fits.open(args.path +str(i)) for i in fitsfiles]
-	# NP Opening fits files
-	log = generatelogtxt(fitsopen)
+	log = generatelogtxt(fitsfiles)
 	# NP Writing log
 	print(log)
 	# NP Printing log
