@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 # NP Necessary imports
 
@@ -57,7 +58,7 @@ def scatter_t(mts, mt_upper, mt_lower, lts, olt, t):
 	ax1.errorbar(lts[ii]/1000, mts[ii] /1000, yerr=(mt_lower[ii]/1000, \
 		mt_upper[ii]/1000), xerr = true_olt[ii]/1000, fmt = '.', \
 		color = color1)
-	plt.tick_params('x', labelbottom=False)
+	#plt.tick_params('x', labelbottom=False)
 	test = np.linspace(np.min([np.min(mts[ii]), np.min(lts[ii])]), \
 		np.max([np.max(mts[ii]), np.max(lts[ii])]), 1000)
 	plt.plot(test/1000, test /1000, '--k')
@@ -140,6 +141,7 @@ def read_mass_sheet(direc):
 	return temps, gs, vs
 
 if (__name__ == '__main__'):
+	mpl.rcParams.update({'font.size': 20})
 	d = './Comparisons.csv'
 	# NP Defining path to data sheet
 	names, mts, mt_upper, mt_lower, mgs, mg_upper, mg_lower, \

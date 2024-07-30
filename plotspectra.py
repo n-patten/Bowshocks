@@ -5,12 +5,14 @@ import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
 	files = os.listdir('/d/hya1/nikhil/BS/spectra/')
+	#files = os.listdir('/d/hya1/nikhil/BS/temp/')
 	# NP Finding files in directory
 	ispec = np.array([f[-4:] == 'fits' for f in files])
 	# NP Limiting selection to only fits files
 	for i in np.array(files)[ispec]:
 		print('Working on spectrum: ' +i)
 		hdu1 = fits.open('/d/hya1/nikhil/BS/spectra/' +i)
+		#hdu1 = fits.open('/d/hya1/nikhil/BS/temp/' +i)
 		# NP Opening spectrum
 		data1= hdu1[0].data
 		# NP Reading in data
@@ -29,7 +31,7 @@ if __name__ == '__main__':
 			figsize = [20, 8], facecolor = 'white', \
 			gridspec_kw = {'width_ratios': [4, 9, 3]}, \
 			sharey = True)
-		f.suptitle(name +' spectrum', fontsize = 24)
+		#f.suptitle(name +' spectrum', fontsize = 24)
 		minimum = np.min(data1[np.logical_and(wavl1 > \
 			4000, wavl1 < 4900)])
 		nearest_tenth = np.round(minimum *10) /10

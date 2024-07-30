@@ -83,7 +83,7 @@ def generatelogtxt(fitsopen):
 		+str(dates[int(np.median(polishedindices))][5:7]) +' '\
 		+str(dates[int(np.median(polishedindices))][0:4])+'\n'\
 		+'Observer: Nikhil Patten\n'\
-		+'CONDITIONS\n'\
+		+'CONDITIONS: \n'\
 		+'Image\t\tObject\tName\texp\tSlit\t\tTAI\tX\tNotes\n'
 	# NP Creating header of log file
 	for i in range(len(polishedindices)):

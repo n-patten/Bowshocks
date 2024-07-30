@@ -182,10 +182,15 @@ if(__name__ == '__main__'):
 		' RotType=Horizon; RotAng=90' 
 		+'\n# G = ' +gs[i] for i in range(len(n))]
 	# NP Generating array of objects in APO format
+	test = np.array(['DispColor=#30638E'], dtype=str)
+	# NP Setting color
 	index = limitobjs(wiro)
 	# NP Limiting selection
 	dimmerAPO = np.array(APO)[index]
-	np.savetxt(args.name +'APOtargets.txt', dimmerAPO, fmt = '%s')
+	# NP Whittling down list to observable targets
+	full = np.concatenate((test, dimmerAPO))
+	# NP Combining list with color setting
+	np.savetxt(args.name +'APOtargets.txt', full, fmt = '%s')
 	# NP Saving limited targets
 	print("Done.")
 	# NP Printing message when conversion is complete

@@ -5,6 +5,7 @@ import random
 import argparse
 import traceback
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 # NP Importing necessary packages
 
@@ -490,7 +491,7 @@ def noise_estimation(w, d, plot):
 		plt.xlim(x_range[0], x_range[999])
 		plt.ylabel('PDF')
 		plt.xlabel(r'$\Delta$')
-		plt.title(sname +' noise distribution')
+		#plt.title(sname +' noise distribution')
 		param_bbox = dict(alpha = 0.7,
 			facecolor = 'wheat',
 			boxstyle = 'round')
@@ -499,7 +500,7 @@ def noise_estimation(w, d, plot):
 			np.round(fit.params[1], 5)), bbox = \
 			param_bbox, ha = 'center', fontsize = 12, \
 			transform = ax1.transAxes, va = 'center')
-		plt.legend()
+		#plt.legend()
 		plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname \
 			+'stat_noise.pdf')
 	return sig
@@ -555,8 +556,8 @@ def residuals(w, d, sig, re, plot):
 			4300, 4350, 4400, 4450, 4500, 4550, 4600, \
 			4650, 4700, 4750, 4800, 4850, 4900, 4950, \
 			5000], **axiskwargs)
-		plt.title(sname +' systematic uncertainty '\
-			'spectrum', **axiskwargs)
+		#plt.title(sname +' systematic uncertainty '\
+		#	'spectrum', **axiskwargs)
 		plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname \
 			+'sys_unc.pdf')
 		plt.clf()
@@ -571,8 +572,8 @@ def residuals(w, d, sig, re, plot):
 			5000, w > 4000)])
 		plt.ylim(0, 1.05 *err_max)
 		plt.xlim(4000, 5000)
-		plt.title(sname +' uncertainty spectrum', \
-			**axiskwargs)
+		#plt.title(sname +' uncertainty spectrum', \
+		#	**axiskwargs)
 		plt.ylabel(r'Predicted uncertainty', **axiskwargs)
 		plt.xlabel(r'Wavelength $\lambda$ ($\AA$)', \
 			**axiskwargs)
@@ -785,14 +786,15 @@ def mcmc(t, g, v, runs = 3000):
 	ax1 = plt.subplot(2, 1, 1)
 	# NP Creating first subplot for data spectrum and best-fit
 	# NP model spectrum
-	plt.title('Stellar spectrum with best-fit interpolated\n'
-		'model and residual spectrum', fontsize = 20)
+	#plt.title('Stellar spectrum with best-fit interpolated\n'
+	#	'model and residual spectrum', fontsize = 20)
 	# NP Setting title
 	plt.plot(wavl, data, color = 'black', label = 'Data')
 	# NP Plotting data spectrum
 	plt.plot(wavl[wavl > 3800], model(wavl[wavl > 3800]), \
 		'--', color = 'darkred', label = 'Best-fit model')
 	# NP Plotting best-fit model spectrum
+	mpl.rcParams.update({'font.size': 12})
 	plt.vlines(x=4009, color = 'k', linewidth = 1, ymax = 1.03, \
 		ymin = 1.01)
 	plt.text(4009, 1.038, r'He I 4009', rotation = 90, \
@@ -1006,6 +1008,7 @@ def mcmc(t, g, v, runs = 3000):
 		, ymin = 1.01)
 	plt.text(4922, 1.038, r'He I 5922', rotation = 90, \
 		ha = 'center')
+	mpl.rcParams.update({'font.size': 20})
 	legend_font = {'size': 15,}
 	param_bbox = dict(alpha = 0.7,
 		facecolor = 'wheat',
@@ -1091,14 +1094,16 @@ def mcmc(t, g, v, runs = 3000):
 		labels = ('T', 'log g', 'vsini'),
 		range = [0.999, 0.999, 0.999],
 	)
+	mpl.rcParams.update({'font.size': 12})
 	fig = corner.corner(flat_samples, **CORNER_KWARGS)
 	plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname +'corners.png')
 	plt.savefig('/d/hya1/nikhil/BS/analysis/' +sname +'corners.pdf')
+	mpl.rcParams.update({'font.size': 20})
 	
 def plot_grid(t, g, n):
 	plt.figure(figsize = [8, 6], facecolor = 'white')
 	plt.plot(t/1000, g, 'ok')
-	plt.title(n +' parameters')
+	#plt.title(n +' parameters')
 	plt.xlabel(r'Temperature ($kK$)')
 	plt.ylabel(r'$\log g$ (cgs)')
 	plt.yticks(np.arange(np.min(g), np.max(g) +0.2, 0.2))
@@ -1106,7 +1111,7 @@ def plot_grid(t, g, n):
 		/1000) +1, 1)
 	tlabels = [str(t) if t % 5 == 0 else "" for t in t_range]
 	plt.xticks(t_range, tlabels)
-	plt.savefig('/d/hya1/nikhil/BS/model_spectra' +n +'.pdf')
+	plt.savefig('/d/hya1/nikhil/BS/model_spectra/' +n +'.pdf')
 
 if(__name__ == '__main__'):
 	parser = argparse.ArgumentParser(description = 'Program to\
@@ -1117,6 +1122,7 @@ if(__name__ == '__main__'):
 		' of the normalized reduced spectrum. Example:'
 		' /d/car1/.../BS013.fits')
 	# NP Adding description of arguments
+	mpl.rcParams.update({'font.size': 20})
 	args = parser.parse_args()
 	# NP Adding parsers
 	print('Reading in spectrum...\n')
@@ -1147,19 +1153,19 @@ if(__name__ == '__main__'):
 	# NP APO KOSMOS spectrum
 	print('Determining which models to use.\n')
 	global ctemps, cgs, vsini, cwavls, cints
-	#btemps, bgs, bvsini, bwavls, bints = get_Bstars(APO)
-	otemps, ogs, ovsini, owavls, oints = get_Ostars(APO)
+	btemps, bgs, bvsini, bwavls, bints = get_Bstars(APO)
+	#otemps, ogs, ovsini, owavls, oints = get_Ostars(APO)
 	#ptemps, pgs, pvsini, pwavls, pints = get_POWR(APO)
 	#plot_grid(btemps, bgs, 'BSTAR2006')
 	#plot_grid(otemps, ogs, 'OSTAR2002')
 	#plot_grid(ptemps, pgs, 'POWR')
 	#ctemps, cgs, vsini, cwavls, cints = guessmodels(btemps, \
-#		bgs, bvsini, bwavls, bints, otemps, ogs, ovsini, \
-#		owavls, oints, wavl, data)
-	ctemps, cgs, vsini, cwavls, cints = otemps, ogs, ovsini, \
-		owavls, oints
-	#ctemps, cgs, vsini, cwavls, cints = btemps, bgs, bvsini, \
-	#	bwavls, bints
+	#	bgs, bvsini, bwavls, bints, otemps, ogs, ovsini, \
+	#	owavls, oints, wavl, data)
+	#ctemps, cgs, vsini, cwavls, cints = otemps, ogs, ovsini, \
+	#	owavls, oints
+	ctemps, cgs, vsini, cwavls, cints = btemps, bgs, bvsini, \
+		bwavls, bints
 	#ctemps, cgs, vsini, cwavls, cints = ptemps, pgs, pvsini, \
 	#	pwavls, pints
 	# NP Defining global variables for models used throughout the
@@ -1167,10 +1173,10 @@ if(__name__ == '__main__'):
 	print('Estimating best fit parameters.\n')
 	bestT, bestg, bestv, resids = guess(wavl, data)
 	# NP Getting best-fit paramaters
-	sig = noise_estimation(wavl, data, True)
+	sig = noise_estimation(wavl, data, False)
 	print('Statistical sigma estimation: ' +str(sig))
 	global sig_tot
-	sig_tot = residuals(wavl, data, sig, resids, True)
+	sig_tot = residuals(wavl, data, sig, resids, False)
 	print('Total sigma estimation: ' +str(sig_tot))
 	if(~np.isnan(bestT +bestg +bestv)):
 		s = open('/d/hya1/nikhil/BS/analysis/' +sname \
