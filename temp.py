@@ -35,7 +35,7 @@ def get_POWR(APO):
 	'''
 	if APO:
 		print('Reading in APO model spectra.\n')
-		cdir = '/d/hya1/nikhil/BS/model_spectra/PoWR/APO/'
+		cdir = '/d/hya1/nikhil/BS/model_spectra/PoWR/new_PoWR/APO/0_83/'
 		# NP Directory for convolved spectra
 	else:
 		print('Reading in WIRO model spectra.\n')
@@ -45,25 +45,31 @@ def get_POWR(APO):
 	# NP Convolved model names
 	cifiles = [n[-4:] == '.txt' for n in cnames]
 	# NP Limiting to only text files
-	cmodel = [np.genfromtxt(cdir +i, filling_values= \
-		{0:'-111'}, dtype = str, delimiter = \
-		'         ') for i in cnames[cifiles]]
+	#cmodel = [np.genfromtxt(cdir +i, filling_values= \
+	#	{0:'-111'}, dtype = str, delimiter = \
+	#	'         ') for i in cnames[cifiles]]
+	cmodel = [np.loadtxt(cdir +i, unpack = True) for i in \
+		cnames[cifiles]]
 	# NP reading in model data
-	ctemps = np.array([float(n[-12:-7]) for n in \
+	ctemps = np.array([float(n[5:7]) *1000 for n in \
 		cnames[cifiles]])
 	# NP Finding temperature information for each model
-	cgs = np.array([float(n[-7:-4]) /100 for n in \
+	cgs = np.array([float(n[8:10]) /10 for n in \
 		cnames[cifiles]])
 	# NP Finding gravity information for each model
-	vsini = np.array([float(n[4:-12]) for n in \
+	vsini = np.array([float(n[12:15]) for n in \
 		cnames[cifiles]])
 	# NP Finding vsini convolution for model
-	cwavls = np.array([np.array([float(i[0:8]) for \
-		i in l])for l in cmodel], dtype = object)
+	#cwavls = np.array([np.array([float(i[0:8]) for \
+	#	i in l])for l in cmodel], dtype = object)
+	cwavls = [m[0] for m in cmodel]
 	# NP Reading in vacuum wavelengths
-	cints = np.array([np.array([float(i[8:]) for i in \
-		l])for l in cmodel], dtype = object)
+	#cints = np.array([np.array([float(i[8:]) for i in \
+	#	l])for l in cmodel], dtype = object)
+	cints = [m[1] for m in cmodel]
 	# NP Reading in convolved model intensities
+	print(cwavls)
+	print(cints)
 	return ctemps, cgs, vsini, cwavls, cints
 	print('Done!\n')
 
@@ -266,8 +272,8 @@ def guess(wav, dat):
 	# NP Creating a spline of all model spectra
 	diffs = np.array([np.array([((dat[ii] \
 		-modelsplines[i](wav[ii]))) for ii in \
-		range(len(wav)) if wav[ii] > 3900 and wav[ii] < 5100]) for i in \
-		range(len(modelsplines))])
+		range(len(wav)) if wav[ii] > 3900 and wav[ii] \
+		< 5100]) for i in range(len(modelsplines))])
 	# NP Evaluating deviation of data from each model spectrum
 	smin = np.argmin([np.sum(r **2) for r in diffs])
 	# NP Finding minimum chi squared
@@ -545,8 +551,8 @@ def residuals(w, d, sig, re, plot):
 		plt.fill_between(w, 0, smoothed_sig_sys, color = \
 			color2)
 		plt.xlim(4000, 5000)
-		max_value = np.max(smoothed_sig_sys[\
-			np.logical_and(w > 4000, w < 5000)])
+		max_value = np.max(smoothed_sig_sys[np.logical_and( \
+			w > 4000, w > 5000)])
 		plt.ylim(0, max_value *1.05)
 		plt.ylabel(r'Systematic uncertainty', **axiskwargs)
 		plt.xlabel(r'Wavelength $\lambda$ ($\AA$)', \
@@ -566,10 +572,10 @@ def residuals(w, d, sig, re, plot):
 		ax1 = plt.axes()
 		plt.plot(w, broad_sig, color = 'black')
 		#plt.plot(w, -1 *broad_sig, color = 'black')
-		plt.fill_between(w, -0 *broad_sig, broad_sig, \
-			color = color3)
-		err_max = np.max(broad_sig[np.logical_and(w < \
-			5000, w > 4000)])
+		plt.fill_between(w, -0 *broad_sig, broad_sig, color = \
+			color3)
+		err_max = np.max(broad_sig[np.logical_and(w > \
+			4000, w < 5000)])
 		plt.ylim(0, 1.05 *err_max)
 		plt.xlim(4000, 5000)
 		#plt.title(sname +' uncertainty spectrum', \
@@ -645,7 +651,7 @@ def log_likelihood_T(theta, x, y, yerr):
 			return logprobtot
 		except Exception as e:
 			print('Can\'t find probability!')
-			print(e)
+			print(repr(e))
 			return -np.inf
 	else:
 	    	print('Skipping loop')
@@ -1006,7 +1012,7 @@ def mcmc(t, g, v, runs = 3000):
 		ha = 'center')
 	plt.vlines(x=4922, color= 'k', linewidth = 1, ymax = 1.03\
 		, ymin = 1.01)
-	plt.text(4922, 1.038, r'He I 5922', rotation = 90, \
+	plt.text(4922, 1.038, r'He I 4922', rotation = 90, \
 		ha = 'center')
 	mpl.rcParams.update({'font.size': 20})
 	legend_font = {'size': 15,}
@@ -1153,8 +1159,8 @@ if(__name__ == '__main__'):
 	# NP APO KOSMOS spectrum
 	print('Determining which models to use.\n')
 	global ctemps, cgs, vsini, cwavls, cints
-	btemps, bgs, bvsini, bwavls, bints = get_Bstars(APO)
-	#otemps, ogs, ovsini, owavls, oints = get_Ostars(APO)
+	#btemps, bgs, bvsini, bwavls, bints = get_Bstars(APO)
+	otemps, ogs, ovsini, owavls, oints = get_Ostars(APO)
 	#ptemps, pgs, pvsini, pwavls, pints = get_POWR(APO)
 	#plot_grid(btemps, bgs, 'BSTAR2006')
 	#plot_grid(otemps, ogs, 'OSTAR2002')
@@ -1162,10 +1168,10 @@ if(__name__ == '__main__'):
 	#ctemps, cgs, vsini, cwavls, cints = guessmodels(btemps, \
 	#	bgs, bvsini, bwavls, bints, otemps, ogs, ovsini, \
 	#	owavls, oints, wavl, data)
-	#ctemps, cgs, vsini, cwavls, cints = otemps, ogs, ovsini, \
-	#	owavls, oints
-	ctemps, cgs, vsini, cwavls, cints = btemps, bgs, bvsini, \
-		bwavls, bints
+	ctemps, cgs, vsini, cwavls, cints = otemps, ogs, ovsini, \
+		owavls, oints
+	#ctemps, cgs, vsini, cwavls, cints = btemps, bgs, bvsini, \
+	#	bwavls, bints
 	#ctemps, cgs, vsini, cwavls, cints = ptemps, pgs, pvsini, \
 	#	pwavls, pints
 	# NP Defining global variables for models used throughout the

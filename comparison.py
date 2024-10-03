@@ -68,12 +68,12 @@ def scatter_t(mts, mt_upper, mt_lower, lts, olt, t):
 	plt.hist(t/1000, bins = np.arange(20, 50, 5), edgecolor = \
 		'black', linewidth = 1.2, color = color1, \
 		orientation = 'horizontal')
-	ax2.set_xticks(np.arange(0, 22, 2))
+	ax2.set_xticks(np.arange(0, 35, 5))
 	plt.setp(ax2.get_yticklabels(), visible=False)
 	plt.subplots_adjust(hspace=0)
 	plt.xlabel(r'$N$ (Number of stars)')
 	plt.tight_layout()
-	plt.savefig('./calibrators/temp_comparison.eps', \
+	plt.savefig('./calibrators/temp_comparison.pdf', \
 		bbox_inches='tight')
 	
 def scatter_g(mgs, mg_upper, mg_lower, lgs, olg, g):
@@ -96,12 +96,12 @@ def scatter_g(mgs, mg_upper, mg_lower, lgs, olg, g):
 	plt.hist(g, bins = np.arange(2.0, 5.5, 0.5), edgecolor = \
 		'black', linewidth = 1.2, color = color2, \
 		orientation = 'horizontal')
-	ax2.set_xticks(np.arange(0, 30, 2))
+	ax2.set_xticks(np.arange(0, 40, 5))
 	plt.setp(ax2.get_yticklabels(), visible=False)
 	plt.subplots_adjust(hspace=0)
 	plt.xlabel(r'$N$ (Number of stars)')
 	plt.tight_layout()
-	plt.savefig('./calibrators/g_comparison.eps', \
+	plt.savefig('./calibrators/g_comparison.pdf', \
 		bbox_inches='tight')
 	
 def scatter_v(mvs, mv_upper, mv_lower, lvs, olv, v):
@@ -124,12 +124,12 @@ def scatter_v(mvs, mv_upper, mv_lower, lvs, olv, v):
 	plt.hist(v, bins = np.arange(0, 450, 50), edgecolor = \
 		'black', linewidth = 1.2, color = color3, \
 		orientation = 'horizontal')
-	ax2.set_xticks(np.arange(0, 18, 2))
+	ax2.set_xticks(np.arange(0, 35, 5))
 	plt.setp(ax2.get_yticklabels(), visible=False)
 	plt.subplots_adjust(hspace=0)
 	plt.xlabel(r'$N$ (Number of stars)')
 	plt.tight_layout()
-	plt.savefig('./calibrators/v_comparison.eps')
+	plt.savefig('./calibrators/v_comparison.pdf')
 	
 def read_mass_sheet(direc):
 	sheet = np.loadtxt(direc, delimiter = ',', \
